@@ -146,12 +146,13 @@
     }
 
     Netmap.prototype.init_svg = function() {
-      var marker1, marker2, zoom, zoom_func;
+      var defs, marker1, marker2, zoom, zoom_func;
 
-      this.svg = d3.select(this.parent_selector).append("svg").attr("id", "svg").attr("width", this.width != null ? this.width : "100%").attr("height", this.height != null ? this.height : "100%");
+      this.svg = d3.select(this.parent_selector).append("svg").attr("version", "1.1").attr("xmlns", "http://www.w3.org/2000/svg").attr("xmlns:xmlns:xlink", "http://www.w3.org/1999/xlink").attr("id", "svg").attr("width", this.width != null ? this.width : "100%").attr("height", this.height != null ? this.height : "100%");
       zoom = this.svg.append('g').attr("id", "zoom").attr("fill", "#ffe");
       marker1 = this.svg.append("marker").attr("id", "marker1").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5");
       marker2 = this.svg.append("marker").attr("id", "marker2").attr("viewBox", "-10 -5 10 10").attr("refX", -10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L-10,0L0,5");
+      defs = this.svg.append("defs");
       this.zoom = d3.behavior.zoom();
       this.zoom.scaleExtent([0.5, 5]);
       zoom_func = function() {
@@ -1224,7 +1225,7 @@
         return d.id;
       });
       groups = entities.enter().append("g").attr("class", "entity").attr("id", function(d) {
-        return d.id;
+        return 'entity-' + d.id;
       }).call(entity_drag).on("mouseover", function(d) {
         var r, _i, _len, _ref, _results;
 
@@ -1302,21 +1303,21 @@
       groups.filter(function(d) {
         return t.split_name(d.name)[0] !== d.name;
       }).insert("rect", ":first-child").attr("class", "text_rect").attr("fill", this.entity_background_color).attr("opacity", this.entity_background_opacity).attr("rx", this.entity_background_corner_radius).attr("ry", this.entity_background_corner_radius).attr("x", function(d) {
-        return -$(this.parentNode).find(".entity_link text:nth-child(2)").width() / 2 - 3;
+        return -$(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width / 2 - 3;
       }).attr("y", function(d) {
         var extra_offset, image_offset, text_offset;
 
         image_offset = 24;
-        text_offset = $(this.parentNode).find(".entity_link text").height();
+        text_offset = $(this.parentNode).find(".entity_link text")[0].getBBox().height;
         extra_offset = 5;
         return image_offset + text_offset + extra_offset;
       }).attr("width", function(d) {
-        return $(this.parentNode).find(".entity_link text:nth-child(2)").width() + 6;
+        return $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width + 6;
       }).attr("height", function(d) {
-        return $(this.parentNode).find(".entity_link text:nth-child(2)").height() + 4;
+        return $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().height + 4;
       });
       groups.insert("rect", ":first-child").attr("class", "text_rect").attr("fill", this.entity_background_color).attr("opacity", this.entity_background_opacity).attr("rx", this.entity_background_corner_radius).attr("ry", this.entity_background_corner_radius).attr("x", function(d) {
-        return -$(this.parentNode).find(".entity_link text").width() / 2 - 3;
+        return -$(this.parentNode).find(".entity_link text")[0].getBBox().width / 2 - 3;
       }).attr("y", function(d) {
         var extra_offset, image_offset;
 
@@ -1324,9 +1325,9 @@
         extra_offset = 1;
         return image_offset + extra_offset;
       }).attr("width", function(d) {
-        return $(this.parentNode).find(".entity_link text").width() + 6;
+        return $(this.parentNode).find(".entity_link text")[0].getBBox().width + 6;
       }).attr("height", function(d) {
-        return $(this.parentNode).find(".entity_link text").height() + 4;
+        return $(this.parentNode).find(".entity_link text")[0].getBBox().height + 4;
       });
       entities.exit().remove();
       this.svg.selectAll(".entity").on("click", function(d, i) {

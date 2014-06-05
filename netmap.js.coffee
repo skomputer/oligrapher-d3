@@ -93,10 +93,15 @@ class Netmap
     @init_callbacks()
 
   init_svg: ->
-    @svg = d3.select(@parent_selector).append("svg")
+    @svg = d3.select(@parent_selector)
+      .append("svg")
+      .attr("version", "1.1")
+      .attr("xmlns", "http://www.w3.org/2000/svg")
+      .attr("xmlns:xmlns:xlink", "http://www.w3.org/1999/xlink")
       .attr("id", "svg")
       .attr("width", if @width? then @width else "100%")
       .attr("height", if @height? then @height else "100%")
+
     zoom = @svg.append('g')
       .attr("id", "zoom")
       .attr("fill", "#ffe")
@@ -122,6 +127,8 @@ class Netmap
       .attr("orient", "auto")
       .append("path")
       .attr("d", "M0,-5L-10,0L0,5")
+
+    defs = @svg.append("defs")
 
     @zoom = d3.behavior.zoom()
     @zoom.scaleExtent([0.5, 5])
@@ -797,7 +804,7 @@ class Netmap
     
     groups = entities.enter().append("g")
       .attr("class", "entity")
-      .attr("id", (d) -> d.id)
+      .attr("id", (d) -> 'entity-' + d.id)
       .call(entity_drag)
       .on("mouseover", (d) ->
         for r in t.rels_by_entity(d.id)
@@ -880,16 +887,16 @@ class Netmap
       .attr("rx", @entity_background_corner_radius)
       .attr("ry", @entity_background_corner_radius)
       .attr("x", (d) -> 
-        -$(this.parentNode).find(".entity_link text:nth-child(2)").width()/2 - 3
+        -$(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width/2 - 3
       )
       .attr("y", (d) ->
         image_offset = 24
-        text_offset = $(this.parentNode).find(".entity_link text").height()
+        text_offset = $(this.parentNode).find(".entity_link text")[0].getBBox().height
         extra_offset = 5 # if has_image(d) then 2 else -5
         image_offset + text_offset + extra_offset
       )
-      .attr("width", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)").width() + 6)
-      .attr("height", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)").height() + 4)
+      .attr("width", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width + 6)
+      .attr("height", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().height + 4)
 
     groups.insert("rect", ":first-child")
       .attr("class", "text_rect")
@@ -898,15 +905,15 @@ class Netmap
       .attr("rx", @entity_background_corner_radius)
       .attr("ry", @entity_background_corner_radius)
       .attr("x", (d) ->
-        -$(this.parentNode).find(".entity_link text").width()/2 - 3
+        -$(this.parentNode).find(".entity_link text")[0].getBBox().width/2 - 3
       )
       .attr("y", (d) ->
         image_offset = 24
         extra_offset = 1 # if has_image(d) then 1 else -6
         image_offset + extra_offset
       )
-      .attr("width", (d) -> $(this.parentNode).find(".entity_link text").width() + 6)
-      .attr("height", (d) -> $(this.parentNode).find(".entity_link text").height() + 4)
+      .attr("width", (d) -> $(this.parentNode).find(".entity_link text")[0].getBBox().width + 6)
+      .attr("height", (d) -> $(this.parentNode).find(".entity_link text")[0].getBBox().height + 4)
 
     entities.exit().remove()
 
