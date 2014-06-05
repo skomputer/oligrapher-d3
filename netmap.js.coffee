@@ -607,13 +607,15 @@ class Netmap
         m + q
       )
 
-    d3.selectAll(".line:not(.highlight)")
-      .attr("marker-end", (d) -> 
-        if (t.rel_is_directional(d) and d.source.x < d.target.x) then "url(#marker1)" else ""
-      )
-      .attr("marker-start", (d) -> 
-        if (t.rel_is_directional(d) and d.source.x >= d.target.x) then "url(#marker2)" else ""
-      )
+    # BREAKS INTERNET EXPLORER
+    #
+    # d3.selectAll(".line:not(.highlight)")
+    #   .attr("marker-end", (d) -> 
+    #     if (t.rel_is_directional(d) and d.source.x < d.target.x) then "url(#marker1)" else ""
+    #   )
+    #   .attr("marker-start", (d) -> 
+    #     if (t.rel_is_directional(d) and d.source.x >= d.target.x) then "url(#marker2)" else ""
+    #   )
 
 
   use_force: ->
@@ -716,12 +718,13 @@ class Netmap
       .style("stroke-width", (d) ->
         Math.sqrt(d.value) * 1;
       )
-      .attr("marker-end", (d) -> 
-        if d.source.x < d.target.x then "url(#marker)" else ""
-      )
-      .attr("marker-start", (d) -> 
-        if d.source.x >= d.target.x then "url(#marker)" else ""
-      )
+      # BREAKS INTERNET EXPLORER
+      # .attr("marker-end", (d) -> 
+      #   if d.source.x < d.target.x then "url(#marker)" else ""
+      # )
+      # .attr("marker-start", (d) -> 
+      #   if d.source.x >= d.target.x then "url(#marker)" else ""
+      # )
 
     # anchor tags around category labels
     groups.append("a")
@@ -926,7 +929,7 @@ class Netmap
     )
     
   toggle_selected_entity: (id) ->
-    g = $("#" + id + ".entity")
+    g = $("#entity-" + id + ".entity")
     klass = if g.attr("class") == "entity" then "entity selected" else "entity"
     g.attr("class", klass)
     

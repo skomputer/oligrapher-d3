@@ -929,7 +929,7 @@
       d3.selectAll(".rel").attr("transform", function(d) {
         return "translate(" + (d.source.x + d.target.x) / 2 + "," + (d.source.y + d.target.y) / 2 + ")";
       });
-      d3.selectAll(".line").attr("d", function(d) {
+      return d3.selectAll(".line").attr("d", function(d) {
         var ax, ay, c, dr, dx, dxm1, dxm2, dy, dym1, dym2, m, node_radius, q, rm1, rm2, spacing, x1, xa, xb, xm1, xm2, y1, ya, yb, ym1, ym2;
 
         dx = d.target.x - d.source.x;
@@ -970,19 +970,6 @@
         m = "M" + (xa - xm1) + "," + (ya - ym1);
         q = "Q" + x1 + "," + y1 + "," + (xb - xm2) + "," + (yb - ym2);
         return m + q;
-      });
-      return d3.selectAll(".line:not(.highlight)").attr("marker-end", function(d) {
-        if (t.rel_is_directional(d) && d.source.x < d.target.x) {
-          return "url(#marker1)";
-        } else {
-          return "";
-        }
-      }).attr("marker-start", function(d) {
-        if (t.rel_is_directional(d) && d.source.x >= d.target.x) {
-          return "url(#marker2)";
-        } else {
-          return "";
-        }
       });
     };
 
@@ -1120,18 +1107,6 @@
         return "path-" + d.id;
       }).attr("class", "line").attr("opacity", 0.6).attr("fill", "none").style("stroke-width", function(d) {
         return Math.sqrt(d.value) * 1;
-      }).attr("marker-end", function(d) {
-        if (d.source.x < d.target.x) {
-          return "url(#marker)";
-        } else {
-          return "";
-        }
-      }).attr("marker-start", function(d) {
-        if (d.source.x >= d.target.x) {
-          return "url(#marker)";
-        } else {
-          return "";
-        }
       });
       groups.append("a").attr("xrel:href", function(d) {
         return d.url;
@@ -1343,7 +1318,7 @@
     Netmap.prototype.toggle_selected_entity = function(id) {
       var g, klass, r, selected, _i, _len, _ref, _results;
 
-      g = $("#" + id + ".entity");
+      g = $("#entity-" + id + ".entity");
       klass = g.attr("class") === "entity" ? "entity selected" : "entity";
       g.attr("class", klass);
       selected = g.attr("class") === "entity selected";
