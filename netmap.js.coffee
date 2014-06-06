@@ -702,7 +702,15 @@ class Netmap
       .attr("id", (d) -> "rel-" + d.id)
       .call(rel_drag)
 
-    #begin with paths
+    # transparent thick path for dragging
+    groups.append("path")
+      .attr("id", (d) -> "path-bg-" + d.id)
+      .attr("class", "line bg")
+      .attr("opacity", 0)
+      .attr("stroke", "white")
+      .attr("stroke-width", 20)
+
+    # yellow path for highlighting
     groups.append("path")
       .attr("id", (d) -> "path-highlight-" + d.id)
       .attr("class", "line highlight")
@@ -710,6 +718,7 @@ class Netmap
       .attr("fill", "none")
       .style("stroke-width", 4)
 
+    # main path
     groups.append("path")
       .attr("id", (d) -> "path-" + d.id)
       .attr("class", "line")
@@ -742,7 +751,7 @@ class Netmap
 
     rels.exit().remove()
 
-    d3.selectAll(".line")
+    d3.selectAll(".line:not(.highlight):not(.bg)")
       .style("stroke-dasharray", (d) ->
         return "5,2" if (d.is_current == 0 || d.end_date)
         return "10,3" if d.is_current == null

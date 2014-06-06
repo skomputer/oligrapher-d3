@@ -1101,6 +1101,9 @@
         return "rel-" + d.id;
       }).call(rel_drag);
       groups.append("path").attr("id", function(d) {
+        return "path-bg-" + d.id;
+      }).attr("class", "line bg").attr("opacity", 0).attr("stroke", "white").attr("stroke-width", 20);
+      groups.append("path").attr("id", function(d) {
         return "path-highlight-" + d.id;
       }).attr("class", "line highlight").attr("opacity", 0.6).attr("fill", "none").style("stroke-width", 4);
       groups.append("path").attr("id", function(d) {
@@ -1116,7 +1119,7 @@
         return d.label;
       });
       rels.exit().remove();
-      d3.selectAll(".line").style("stroke-dasharray", function(d) {
+      d3.selectAll(".line:not(.highlight):not(.bg)").style("stroke-dasharray", function(d) {
         if (d.is_current === 0 || d.end_date) {
           return "5,2";
         }
