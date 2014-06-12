@@ -245,6 +245,7 @@ class Netmap
     @_data = data    
     @set_center_entity_id(center_entity_id) if center_entity_id?
     entity_index = []
+    @rel_groups = {}
     for e, i in @_data.entities
       e.px = e.x unless e.px?
       e.py = e.y unless e.py?
@@ -255,7 +256,19 @@ class Netmap
         r.y1 = null
       r.source = @_data.entities[entity_index[r.entity1_id]]
       r.target = @_data.entities[entity_index[r.entity2_id]]
-    
+
+      min = Math.min(r.entity1_id, r.entity2_id)
+      max = Math.max(r.entity1_id, r.entity2_id)
+      if @rel_groups[min]
+        if @rel_groups[min][max]
+          @rel_groups[min][max].push(r.id)
+        else
+          @rel_groups[min][max] = [r.id]
+      else
+        obj = {}
+        obj[max] = [r.id]
+        @rel_groups[min] = obj
+
   data: ->
     @_data
 
@@ -437,11 +450,22 @@ class Netmap
     @_data.entities.splice(@entity_index(id), 1)
     @remove_orphaned_rels()
     
-  rels_by_entity : (id) ->
+  rels_by_entity: (id) ->
     @_data.rels.filter((r) -> 
       parseInt(r.entity1_id) == parseInt(id) || parseInt(r.entity2_id) == parseInt(id)
     )
-          
+
+  rel_curve_ratio: (rel) ->
+    min = Math.min(rel.entity1_id, rel.entity2_id)
+    max = Math.max(rel.entity1_id, rel.entity2_id)
+    rels = @rel_groups[min][max]
+    n = rels.length
+    if n == 1
+      return 0.5
+    else
+      i = rels.indexOf(rel.id)
+      return 0.7 * (i+1)/n
+
   set_center_entity_id: (id) ->
     @center_entity_id = id
     for entity in @_data["entities"]
@@ -571,21 +595,22 @@ class Netmap
         if (d.source.x < d.target.x)
           xa = d.source.x - ax
           ya = d.source.y - ay
-          xb = d.target.x - ax
-          yb = d.target.y - ay
         else
           xa = d.target.x - ax
           ya = d.target.y - ay
-          xb = d.source.x - ax
-          yb = d.source.y - ay
 
-        c = Math.sqrt(Math.pow(xa - xb, 2) + Math.pow(ya - yb, 2))
+        xb = -xa
+        yb = -ya
+
         x1 = d.x1
         y1 = d.y1
 
+        n = t.rel_curve_ratio(d)
+        debugger
+
         if (d.x1 == null)
-          x1 = (xa + xb)/2 - (ya - yb)/2 * (Math.sqrt(Math.pow(1.1 * dr/c, 2) - 1))
-          y1 = (ya + yb)/2 + (xa - xb)/2 * (Math.sqrt(Math.pow(1.1 * dr/c, 2) - 1))
+          x1 = -ya * n
+          y1 = xa * n
 
         spacing = 5
         node_radius = 25 + spacing
@@ -930,13 +955,20 @@ class Netmap
     entities.exit().remove()
 
     @svg.selectAll(".entity").on("click", (d, i) ->
+      $('#zoom').append(this)      
       t.toggle_selected_entity(d.id) unless t.drag
     )
 
     @svg.selectAll(".entity a").on("click", (d, i) ->
       d3.event.stopPropagation()
     )
-    
+
+  last_entity_id: ->
+    elems = document.querySelectorAll('#zoom g.entity')
+    elem = elems[elems.length - 1]
+    return null unless elem
+    elem.id
+
   toggle_selected_entity: (id) ->
     g = $("#entity-" + id + ".entity")
     klass = if g.attr("class") == "entity" then "entity selected" else "entity"

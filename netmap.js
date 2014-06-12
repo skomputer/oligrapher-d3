@@ -329,7 +329,7 @@
     };
 
     Netmap.prototype.set_data = function(data, center_entity_id) {
-      var e, entity_index, i, r, _i, _j, _len, _len1, _ref, _ref1, _results;
+      var e, entity_index, i, max, min, obj, r, _i, _j, _len, _len1, _ref, _ref1, _results;
 
       if (center_entity_id == null) {
         center_entity_id = null;
@@ -343,6 +343,7 @@
         this.set_center_entity_id(center_entity_id);
       }
       entity_index = [];
+      this.rel_groups = {};
       _ref = this._data.entities;
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
         e = _ref[i];
@@ -363,7 +364,20 @@
           r.y1 = null;
         }
         r.source = this._data.entities[entity_index[r.entity1_id]];
-        _results.push(r.target = this._data.entities[entity_index[r.entity2_id]]);
+        r.target = this._data.entities[entity_index[r.entity2_id]];
+        min = Math.min(r.entity1_id, r.entity2_id);
+        max = Math.max(r.entity1_id, r.entity2_id);
+        if (this.rel_groups[min]) {
+          if (this.rel_groups[min][max]) {
+            _results.push(this.rel_groups[min][max].push(r.id));
+          } else {
+            _results.push(this.rel_groups[min][max] = [r.id]);
+          }
+        } else {
+          obj = {};
+          obj[max] = [r.id];
+          _results.push(this.rel_groups[min] = obj);
+        }
       }
       return _results;
     };
@@ -736,6 +750,21 @@
       });
     };
 
+    Netmap.prototype.rel_curve_ratio = function(rel) {
+      var i, max, min, n, rels;
+
+      min = Math.min(rel.entity1_id, rel.entity2_id);
+      max = Math.max(rel.entity1_id, rel.entity2_id);
+      rels = this.rel_groups[min][max];
+      n = rels.length;
+      if (n === 1) {
+        return 0.5;
+      } else {
+        i = rels.indexOf(rel.id);
+        return 0.7 * (i + 1) / n;
+      }
+    };
+
     Netmap.prototype.set_center_entity_id = function(id) {
       var entity, _i, _len, _ref, _results;
 
@@ -930,7 +959,7 @@
         return "translate(" + (d.source.x + d.target.x) / 2 + "," + (d.source.y + d.target.y) / 2 + ")";
       });
       return d3.selectAll(".line").attr("d", function(d) {
-        var ax, ay, c, dr, dx, dxm1, dxm2, dy, dym1, dym2, m, node_radius, q, rm1, rm2, spacing, x1, xa, xb, xm1, xm2, y1, ya, yb, ym1, ym2;
+        var ax, ay, dr, dx, dxm1, dxm2, dy, dym1, dym2, m, n, node_radius, q, rm1, rm2, spacing, x1, xa, xb, xm1, xm2, y1, ya, yb, ym1, ym2;
 
         dx = d.target.x - d.source.x;
         dy = d.target.y - d.source.y;
@@ -940,20 +969,19 @@
         if (d.source.x < d.target.x) {
           xa = d.source.x - ax;
           ya = d.source.y - ay;
-          xb = d.target.x - ax;
-          yb = d.target.y - ay;
         } else {
           xa = d.target.x - ax;
           ya = d.target.y - ay;
-          xb = d.source.x - ax;
-          yb = d.source.y - ay;
         }
-        c = Math.sqrt(Math.pow(xa - xb, 2) + Math.pow(ya - yb, 2));
+        xb = -xa;
+        yb = -ya;
         x1 = d.x1;
         y1 = d.y1;
+        n = t.rel_curve_ratio(d);
+        debugger;
         if (d.x1 === null) {
-          x1 = (xa + xb) / 2 - (ya - yb) / 2 * (Math.sqrt(Math.pow(1.1 * dr / c, 2) - 1));
-          y1 = (ya + yb) / 2 + (xa - xb) / 2 * (Math.sqrt(Math.pow(1.1 * dr / c, 2) - 1));
+          x1 = -ya * n;
+          y1 = xa * n;
         }
         spacing = 5;
         node_radius = 25 + spacing;
@@ -1309,6 +1337,7 @@
       });
       entities.exit().remove();
       this.svg.selectAll(".entity").on("click", function(d, i) {
+        $('#zoom').append(this);
         if (!t.drag) {
           return t.toggle_selected_entity(d.id);
         }
@@ -1316,6 +1345,17 @@
       return this.svg.selectAll(".entity a").on("click", function(d, i) {
         return d3.event.stopPropagation();
       });
+    };
+
+    Netmap.prototype.last_entity_id = function() {
+      var elem, elems;
+
+      elems = document.querySelectorAll('#zoom g.entity');
+      elem = elems[elems.length - 1];
+      if (!elem) {
+        return null;
+      }
+      return elem.id;
     };
 
     Netmap.prototype.toggle_selected_entity = function(id) {
