@@ -606,7 +606,6 @@ class Netmap
         y1 = d.y1
 
         n = t.rel_curve_ratio(d)
-        debugger
 
         if (d.x1 == null)
           x1 = -ya * n
