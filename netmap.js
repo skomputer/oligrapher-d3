@@ -1185,7 +1185,13 @@
         value = null;
       }
       rel = d3.select("#rel-" + id + ".rel");
-      return rel.classed("selected", value);
+      return rel.classed("selected", function(d, i) {
+        if (value === true || value === false) {
+          return value;
+        } else {
+          return !rel.classed("selected");
+        }
+      });
     };
 
     Netmap.prototype.toggle_hovered_rel = function(id, value) {

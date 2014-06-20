@@ -802,7 +802,13 @@ class Netmap
 
   toggle_selected_rel: (id, value = null) ->
     rel = d3.select("#rel-" + id + ".rel")
-    rel.classed("selected", value)
+
+    rel.classed("selected", (d, i) ->
+      if value == true or value == false
+        return value
+      else
+        return !rel.classed("selected")
+    )
 
   toggle_hovered_rel: (id, value = null) ->
     rel = d3.select("#rel-" + id + ".rel")
