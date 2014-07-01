@@ -522,6 +522,7 @@ class Netmap
   halfwheel: (center_entity_id = null) ->
     center_entity_id = @center_entity_id if @center_entity_id?
     return unless center_entity_id?    
+    return @one_time_force() if @_data["entities"].length < 3
     count = 0
     for entity, i in @_data["entities"]
       if parseInt(entity.id) == center_entity_id

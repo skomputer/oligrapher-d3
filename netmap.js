@@ -866,6 +866,9 @@
       if (center_entity_id == null) {
         return;
       }
+      if (this._data["entities"].length < 3) {
+        return this.one_time_force();
+      }
       count = 0;
       _ref = this._data["entities"];
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
