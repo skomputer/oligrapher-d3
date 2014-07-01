@@ -139,14 +139,14 @@
       this.entity_background_opacity = 0.6;
       this.entity_background_color = "#fff";
       this.entity_background_corner_radius = 5;
-      this.distance = 225;
+      this.distance = 200;
       this.api = new LittlesisApi(key);
       this.clean_mode = clean_mode;
       this.init_callbacks();
     }
 
     Netmap.prototype.init_svg = function() {
-      var defs, marker1, marker2, zoom, zoom_func;
+      var defs, marker1, marker2, t, zoom, zoom_func;
 
       this.svg = d3.select(this.parent_selector).append("svg").attr("version", "1.1").attr("xmlns", "http://www.w3.org/2000/svg").attr("xmlns:xmlns:xlink", "http://www.w3.org/1999/xlink").attr("id", "svg").attr("width", this.width != null ? this.width : "100%").attr("height", this.height != null ? this.height : "100%");
       zoom = this.svg.append('g').attr("id", "zoom").attr("fill", "#ffe");
@@ -155,9 +155,11 @@
       defs = this.svg.append("defs");
       this.zoom = d3.behavior.zoom();
       this.zoom.scaleExtent([0.5, 5]);
+      t = this;
       zoom_func = function() {
         var scale, trans;
 
+        t.update_zoom();
         trans = d3.event.translate;
         scale = d3.event.scale;
         return zoom.attr("transform", "translate(" + trans + ")" + " scale(" + scale + ")");
@@ -241,7 +243,12 @@
       return this.update_zoom();
     };
 
+    Netmap.prototype.round_scale = function() {
+      return this.zoom.scale(Math.round(this.zoom.scale() * 1000) / 1000);
+    };
+
     Netmap.prototype.update_zoom = function() {
+      this.round_scale();
       return d3.select("#zoom").attr("transform", "translate(" + this.zoom.translate() + ") scale(" + this.zoom.scale() + ")");
     };
 
@@ -249,6 +256,37 @@
       this.zoom.scale(1);
       this.auto_center();
       return this.update_zoom();
+    };
+
+    Netmap.prototype.set_scale = function(scale) {
+      if (scale == null) {
+        scale = 1;
+      }
+      this.zoom.scale(scale);
+      return this.update_zoom();
+    };
+
+    Netmap.prototype.set_translate = function(x, y) {
+      this.zoom.translate([x, y]);
+      return this.update_zoom();
+    };
+
+    Netmap.prototype.set_translate_x = function(x) {
+      this.zoom.translate([x, this.zoom.translate()[1]]);
+      return this.update_zoom();
+    };
+
+    Netmap.prototype.set_translate_y = function(y) {
+      this.zoom.translate([this.zoom.translate()[0], y]);
+      return this.update_zoom();
+    };
+
+    Netmap.prototype.get_scale = function() {
+      return this.zoom.scale();
+    };
+
+    Netmap.prototype.get_translate = function() {
+      return this.zoom.translate();
     };
 
     Netmap.prototype.init_callbacks = function() {
@@ -501,6 +539,7 @@
       return {
         "width": this.width,
         "height": this.height,
+        "zoom": this.zoom.scale(),
         "user_id": this.user_id,
         "data": JSON.stringify(this._data)
       };
@@ -785,7 +824,7 @@
     };
 
     Netmap.prototype.wheel = function(center_entity_id) {
-      var angle, count, entity, i, _i, _len, _ref;
+      var angle, center_x, center_y, count, entity, i, _i, _len, _ref;
 
       if (center_entity_id == null) {
         center_entity_id = null;
@@ -797,16 +836,18 @@
         return this.halfwheel(center_entity_id);
       }
       count = 0;
+      center_x = this.width / 2 - this.zoom.translate()[0];
+      center_y = this.height / 2 - this.zoom.translate()[1];
       _ref = this._data["entities"];
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
         entity = _ref[i];
         if (parseInt(entity.id) === center_entity_id) {
-          this._data["entities"][i].x = this.width / 2;
-          this._data["entities"][i].y = this.height / 2;
+          this._data["entities"][i].x = center_x;
+          this._data["entities"][i].y = center_y;
         } else {
           angle = (2 * Math.PI / (this._data["entities"].length - (center_entity_id != null ? 1 : 0))) * count;
-          this._data["entities"][i].x = this.width / 2 + this.distance * Math.cos(angle);
-          this._data["entities"][i].y = this.height / 2 + this.distance * Math.sin(angle);
+          this._data["entities"][i].x = center_x + this.distance * Math.cos(angle);
+          this._data["entities"][i].y = center_y + this.distance * Math.sin(angle);
           count++;
         }
       }
@@ -1138,7 +1179,7 @@
       }).attr("class", "line").attr("opacity", 0.6).attr("fill", "none").style("stroke-width", function(d) {
         return Math.sqrt(d.value) * 1;
       });
-      groups.append("a").attr("xrel:href", function(d) {
+      groups.append("a").attr("xlink:href", function(d) {
         return d.url;
       }).append("text").attr("class", "label").attr("dy", -6).attr("text-anchor", "middle").append("textPath").attr("startOffset", "50%").attr("xlink:href", function(d) {
         return "#path-" + d.id;
@@ -1167,8 +1208,6 @@
       });
       this.svg.selectAll(".rel a").data(this._data["rels"], function(d) {
         return d.id;
-      }).on("click", function(d) {
-        return window.location.href = d.url;
       });
       this.svg.selectAll(".rel text").data(this._data["rels"], function(d) {
         return d.id;

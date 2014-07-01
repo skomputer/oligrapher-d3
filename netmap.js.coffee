@@ -87,7 +87,7 @@ class Netmap
     @entity_background_opacity = 0.6
     @entity_background_color = "#fff"
     @entity_background_corner_radius = 5
-    @distance = 225
+    @distance = 200
     @api = new LittlesisApi(key)
     @clean_mode = clean_mode
     @init_callbacks()
@@ -132,7 +132,9 @@ class Netmap
 
     @zoom = d3.behavior.zoom()
     @zoom.scaleExtent([0.5, 5])
+    t = this
     zoom_func = ->
+      t.update_zoom()
       trans = d3.event.translate
       scale = d3.event.scale
       zoom.attr("transform", "translate(" + trans + ")" + " scale(" + scale + ")")
@@ -179,13 +181,39 @@ class Netmap
     @zoom.translate([@zoom.translate()[0]-x_diff/2, @zoom.translate()[1]-y_diff/2])
     @update_zoom()
 
+  round_scale: ->
+    @zoom.scale(Math.round(@zoom.scale() * 1000) / 1000)
+
   update_zoom: ->
+    @round_scale()
     d3.select("#zoom").attr("transform", "translate(" + @zoom.translate() + ") scale(" + @zoom.scale() + ")")
   
   reset_zoom: ->
     @zoom.scale(1)
     @auto_center()
     @update_zoom()
+
+  set_scale: (scale=1) ->
+    @zoom.scale(scale)
+    @update_zoom()
+
+  set_translate: (x, y) ->
+    @zoom.translate([x, y])
+    @update_zoom()
+
+  set_translate_x: (x) ->
+    @zoom.translate([x, @zoom.translate()[1]])
+    @update_zoom()
+
+  set_translate_y: (y) ->
+    @zoom.translate([@zoom.translate()[0], y])
+    @update_zoom()
+
+  get_scale: ->
+    @zoom.scale()
+
+  get_translate: ->
+    @zoom.translate()
 
   init_callbacks: ->
     t = this
@@ -332,7 +360,7 @@ class Netmap
     @api.update_map(@network_map_id, @width, @height, @_data, @api_data_callback(callback))
 
   data_for_save: ->
-    { "width": @width, "height": @height, "user_id": @user_id, "data": JSON.stringify(@_data) }  
+    { "width": @width, "height": @height, "zoom": @zoom.scale(), "user_id": @user_id, "data": JSON.stringify(@_data) }  
 
   search_entities: (q, callback = null) ->
     @api.search_entities(q, callback)
@@ -478,14 +506,16 @@ class Netmap
     center_entity_id = @center_entity_id if @center_entity_id?
     return @halfwheel(center_entity_id) if center_entity_id?
     count = 0
+    center_x = @width/2 - @zoom.translate()[0]
+    center_y = @height/2 - @zoom.translate()[1]
     for entity, i in @_data["entities"]
       if parseInt(entity.id) == center_entity_id
-        @_data["entities"][i].x = @width/2
-        @_data["entities"][i].y = @height/2
+        @_data["entities"][i].x = center_x
+        @_data["entities"][i].y = center_y
       else        
         angle = (2 * Math.PI / (@_data["entities"].length - (if center_entity_id? then 1 else 0))) * count
-        @_data["entities"][i].x = @width/2 + @distance * Math.cos(angle)
-        @_data["entities"][i].y = @height/2 + @distance * Math.sin(angle)      
+        @_data["entities"][i].x = center_x + @distance * Math.cos(angle)
+        @_data["entities"][i].y = center_y + @distance * Math.sin(angle)      
         count++
     @update_positions()
 
@@ -761,7 +791,7 @@ class Netmap
 
     # anchor tags around category labels
     groups.append("a")
-      .attr("xrel:href", (d) -> d.url)
+      .attr("xlink:href", (d) -> d.url)
       .append("text")
       .attr("class", "label")
       .attr("dy", -6)
@@ -790,9 +820,6 @@ class Netmap
       .data(@_data["rels"], (d) -> return d.id)
     @svg.selectAll(".rel a")
       .data(@_data["rels"], (d) -> return d.id)
-      .on("click", (d) ->
-        window.location.href = d.url
-      )
     @svg.selectAll(".rel text")
       .data(@_data["rels"], (d) -> return d.id)
     
