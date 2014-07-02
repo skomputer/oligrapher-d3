@@ -82,6 +82,7 @@ class Netmap
     @width = width
     @height = height
     @parent_selector = parent_selector
+    @clean_mode = clean_mode
     @init_svg()
     @force_enabled = false
     @entity_background_opacity = 0.6
@@ -89,7 +90,6 @@ class Netmap
     @entity_background_corner_radius = 5
     @distance = 200
     @api = new LittlesisApi(key)
-    @clean_mode = clean_mode
     @init_callbacks()
 
   init_svg: ->
@@ -105,6 +105,20 @@ class Netmap
     zoom = @svg.append('g')
       .attr("id", "zoom")
       .attr("fill", "#ffe")
+
+    unless @clean_mode
+      zoom.append('line')
+        .attr('x1', -8)
+        .attr('y1', 0)
+        .attr('x2', 8)
+        .attr('y2', 0)
+        .attr('stroke', '#ccc')
+      zoom.append('line')
+        .attr('x1', 0)
+        .attr('y1', -8)
+        .attr('x2', 0)
+        .attr('y2', 8)
+        .attr('stroke', '#ccc')
 
     marker1 = @svg.append("marker")
       .attr("id", "marker1")
@@ -157,14 +171,18 @@ class Netmap
     { x: Math.floor(size.x/2), y: Math.floor(size.y/2) }
 
   auto_center: (x = true, y = true) ->
-    graph_center = @compute_graph_center()
-    svg_center = @svg_center()
-    shift = @zoom.translate()
+    if @centered_coordinates()
+      center = @svg_center()
+      @zoom.translate([center.x, center.y])
+    else
+      graph_center = @compute_graph_center()
+      svg_center = @svg_center()
+      shift = @zoom.translate()
 
-    dx = if x then svg_center.x - graph_center.x - shift[0] else 0
-    dy = if y then svg_center.y - graph_center.y - shift[1] else 0
+      dx = if x then svg_center.x - graph_center.x - shift[0] else 0
+      dy = if y then svg_center.y - graph_center.y - shift[1] else 0
 
-    @shift_map(dx, dy)
+      @shift_map(dx, dy)
 
   shift_map: (dx, dy) ->
     dx ?= 0
@@ -370,8 +388,8 @@ class Netmap
     t = this
     @api.get_add_entity_data(id, @entity_ids(), (data) ->
       data.entities = data.entities.map((e) ->
-        e.x = if position? then position[0] else t.width/2 + 200 * (0.5 - Math.random())
-        e.y = if position? then position[1] else t.height/2 + 200 * (0.5 - Math.random())
+        e.x = if position? then position[0] - t.get_translate()[0] else t.width/2 + 200 * (0.5 - Math.random())
+        e.y = if position? then position[1] - t.get_translate()[1] else t.height/2 + 200 * (0.5 - Math.random())
         e
       )
       new_data = {
@@ -808,8 +826,7 @@ class Netmap
 
     d3.selectAll(".line:not(.highlight):not(.bg)")
       .style("stroke-dasharray", (d) ->
-        return "5,2" if (d.is_current == 0 || d.end_date)
-        return "10,3" if d.is_current == null
+        return "5,2" if (d.is_current == 0 || d.is_current == null || d.end_date)
         ""
       )
 
@@ -1056,6 +1073,12 @@ class Netmap
     r.category_ids.map((cat_id) ->
       [1, 2, 3, 5, 10].indexOf(cat_id)
     ).indexOf(-1) == -1
+
+  centered_coordinates: ->
+    return true if @entities().length == 0
+    @entities().filter((e) ->
+      e.x < 0 or e.y < 0
+    ).length > 1
       
 if typeof module != "undefined" && module.exports
   # on a server

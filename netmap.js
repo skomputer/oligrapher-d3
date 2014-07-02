@@ -134,6 +134,7 @@
       this.width = width;
       this.height = height;
       this.parent_selector = parent_selector;
+      this.clean_mode = clean_mode;
       this.init_svg();
       this.force_enabled = false;
       this.entity_background_opacity = 0.6;
@@ -141,7 +142,6 @@
       this.entity_background_corner_radius = 5;
       this.distance = 200;
       this.api = new LittlesisApi(key);
-      this.clean_mode = clean_mode;
       this.init_callbacks();
     }
 
@@ -150,6 +150,10 @@
 
       this.svg = d3.select(this.parent_selector).append("svg").attr("version", "1.1").attr("xmlns", "http://www.w3.org/2000/svg").attr("xmlns:xmlns:xlink", "http://www.w3.org/1999/xlink").attr("id", "svg").attr("width", this.width != null ? this.width : "100%").attr("height", this.height != null ? this.height : "100%");
       zoom = this.svg.append('g').attr("id", "zoom").attr("fill", "#ffe");
+      if (!this.clean_mode) {
+        zoom.append('line').attr('x1', -8).attr('y1', 0).attr('x2', 8).attr('y2', 0).attr('stroke', '#ccc');
+        zoom.append('line').attr('x1', 0).attr('y1', -8).attr('x2', 0).attr('y2', 8).attr('stroke', '#ccc');
+      }
       marker1 = this.svg.append("marker").attr("id", "marker1").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5");
       marker2 = this.svg.append("marker").attr("id", "marker2").attr("viewBox", "-10 -5 10 10").attr("refX", -10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L-10,0L0,5");
       defs = this.svg.append("defs");
@@ -204,7 +208,7 @@
     };
 
     Netmap.prototype.auto_center = function(x, y) {
-      var dx, dy, graph_center, shift, svg_center;
+      var center, dx, dy, graph_center, shift, svg_center;
 
       if (x == null) {
         x = true;
@@ -212,12 +216,17 @@
       if (y == null) {
         y = true;
       }
-      graph_center = this.compute_graph_center();
-      svg_center = this.svg_center();
-      shift = this.zoom.translate();
-      dx = x ? svg_center.x - graph_center.x - shift[0] : 0;
-      dy = y ? svg_center.y - graph_center.y - shift[1] : 0;
-      return this.shift_map(dx, dy);
+      if (this.centered_coordinates()) {
+        center = this.svg_center();
+        return this.zoom.translate([center.x, center.y]);
+      } else {
+        graph_center = this.compute_graph_center();
+        svg_center = this.svg_center();
+        shift = this.zoom.translate();
+        dx = x ? svg_center.x - graph_center.x - shift[0] : 0;
+        dy = y ? svg_center.y - graph_center.y - shift[1] : 0;
+        return this.shift_map(dx, dy);
+      }
     };
 
     Netmap.prototype.shift_map = function(dx, dy) {
@@ -566,8 +575,8 @@
         var new_data;
 
         data.entities = data.entities.map(function(e) {
-          e.x = position != null ? position[0] : t.width / 2 + 200 * (0.5 - Math.random());
-          e.y = position != null ? position[1] : t.height / 2 + 200 * (0.5 - Math.random());
+          e.x = position != null ? position[0] - t.get_translate()[0] : t.width / 2 + 200 * (0.5 - Math.random());
+          e.y = position != null ? position[1] - t.get_translate()[1] : t.height / 2 + 200 * (0.5 - Math.random());
           return e;
         });
         new_data = {
@@ -1191,11 +1200,8 @@
       });
       rels.exit().remove();
       d3.selectAll(".line:not(.highlight):not(.bg)").style("stroke-dasharray", function(d) {
-        if (d.is_current === 0 || d.end_date) {
+        if (d.is_current === 0 || d.is_current === null || d.end_date) {
           return "5,2";
-        }
-        if (d.is_current === null) {
-          return "10,3";
         }
         return "";
       });
@@ -1465,6 +1471,15 @@
       return r.category_ids.map(function(cat_id) {
         return [1, 2, 3, 5, 10].indexOf(cat_id);
       }).indexOf(-1) === -1;
+    };
+
+    Netmap.prototype.centered_coordinates = function() {
+      if (this.entities().length === 0) {
+        return true;
+      }
+      return this.entities().filter(function(e) {
+        return e.x < 0 || e.y < 0;
+      }).length > 1;
     };
 
     return Netmap;
