@@ -908,6 +908,18 @@ class Netmap
       .attr("x", -29)
       .attr("y", -29)
 
+    unless @clean_mode
+      groups.append("rect")
+        .attr("class", "add_button_rect")
+        .attr("fill", "#fff")
+        .attr("opacity", 0.5)
+        .attr("width", 18)
+        .attr("height", 18)
+        .attr("x", 15)
+        .attr("y", -28)
+        .attr("rx", 5)
+        .attr("ry", 5)    
+
     # profile image or default silhouette
     groups.append("image")
       .attr("class", "image")

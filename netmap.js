@@ -1307,6 +1307,9 @@
       groups.append("clipPath").attr("id", function(d) {
         return "image-clip-" + d.id;
       }).append("circle").attr("class", "image-clip").attr("opacity", 1).attr("r", 25).attr("x", -29).attr("y", -29);
+      if (!this.clean_mode) {
+        groups.append("rect").attr("class", "add_button_rect").attr("fill", "#fff").attr("opacity", 0.5).attr("width", 18).attr("height", 18).attr("x", 15).attr("y", -28).attr("rx", 5).attr("ry", 5);
+      }
       groups.append("image").attr("class", "image").attr("xlink:href", function(d) {
         return d.image;
       }).attr("x", function(d) {
