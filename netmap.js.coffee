@@ -196,12 +196,13 @@ class Netmap
     @update_zoom()
 
   zoom_by: (scale) ->
+    centered = @centered_coordinates()
     svg_size = @svg_size()
     new_scale = @zoom.scale() * scale
-    x_diff = 0 # (new_scale - @zoom.scale()) * svg_size.x
-    y_diff = 0 # (new_scale - @zoom.scale()) * svg_size.y
     new_scale = 0.5 if new_scale < 0.5
     new_scale = 2 if new_scale > 2
+    x_diff = (if centered then 0 else (new_scale - @zoom.scale()) * svg_size.x)
+    y_diff = (if centered then 0 else (new_scale - @zoom.scale()) * svg_size.y)
     @zoom.scale(new_scale)
     @zoom.translate([@zoom.translate()[0]-x_diff/2, @zoom.translate()[1]-y_diff/2])
     @update_zoom()
@@ -246,7 +247,7 @@ class Netmap
     )
 
     $(document).on("keydown", (e) ->
-      unless t.editing_rel or t.editing_entity or t.editing_text
+      unless t.clean_mode or t.editing_rel or t.editing_entity or t.editing_text
         switch e.keyCode
           # backspace, delete, "D", or "d"
           when 8, 46, 68, 100  
@@ -314,6 +315,7 @@ class Netmap
     @rel_groups = {}
     for e, i in @_data.entities
       entity_index[e.id] = i
+      e.hide_image = false unless e.hide_image
     for r in @_data.rels
       if typeof r.x1 == "undefined"
         r.x1 = null
@@ -893,6 +895,9 @@ class Netmap
     rel = d3.select("#rel-" + id + ".rel")
     rel.classed("hovered", value)
 
+  has_image: (d) -> 
+    !d.hide_image and d.image.indexOf("netmap") == -1
+
   build_entities: ->
     t = this
     zoom = d3.selectAll("#zoom")
@@ -934,9 +939,6 @@ class Netmap
           t.toggle_hovered_rel(r.id, false)
       )
 
-    has_image = (d) -> 
-      d.image.indexOf("netmap") == -1
-
     # circle for background and highlighting
     groups.append("circle")
       .attr("class", "image-bg")
@@ -972,11 +974,11 @@ class Netmap
     # profile image or default silhouette
     groups.append("image")
       .attr("class", "image")
-      .attr("xlink:href", (d) -> d.image)
-      .attr("x", (d) -> if has_image(d) then -40 else -25)
-      .attr("y", (d) -> if has_image(d) then -40 else -25)
-      .attr("width", (d) -> if has_image(d) then 80 else 50)
-      .attr("height", (d) -> if has_image(d) then 80 else 50)
+      .attr("xlink:href", (d) -> t.image_for_entity(d))
+      .attr("x", (d) -> if t.has_image(d) then -40 else -25)
+      .attr("y", (d) -> if t.has_image(d) then -40 else -25)
+      .attr("width", (d) -> if t.has_image(d) then 80 else 50)
+      .attr("height", (d) -> if t.has_image(d) then 80 else 50)
       .attr("clip-path", (d) -> "url(#image-clip-" + d.id + ")" )
 
     # add related entities button and background squares
@@ -1000,14 +1002,14 @@ class Netmap
     links.append("text")
       .attr("class", "entitylabel1")
       .attr("dx", 0)
-      .attr("dy", 38) # (d) -> if has_image(d) then 40 else 25)
+      .attr("dy", 38) # (d) -> if t.has_image(d) then 40 else 25)
       .attr("text-anchor", "middle")
       .text((d) -> t.split_name(d.name)[0])
 
     links.append("text")
       .attr("class", "entitylabel2")
       .attr("dx", 0)
-      .attr("dy", 55) # (d) -> if has_image(d) then 55 else 40)
+      .attr("dy", 55) # (d) -> if t.has_image(d) then 55 else 40)
       .attr("text-anchor", "middle")
       .text((d) -> t.split_name(d.name)[1])
 
@@ -1025,7 +1027,7 @@ class Netmap
       .attr("y", (d) ->
         image_offset = 24
         text_offset = $(this.parentNode).find(".entity_link text")[0].getBBox().height
-        extra_offset = 5 # if has_image(d) then 2 else -5
+        extra_offset = 5 # if t.has_image(d) then 2 else -5
         image_offset + text_offset + extra_offset
       )
       .attr("width", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width + 6)
@@ -1042,7 +1044,7 @@ class Netmap
       )
       .attr("y", (d) ->
         image_offset = 24
-        extra_offset = 1 # if has_image(d) then 1 else -6
+        extra_offset = 1 # if t.has_image(d) then 1 else -6
         image_offset + extra_offset
       )
       .attr("width", (d) -> $(this.parentNode).find(".entity_link text")[0].getBBox().width + 6)
@@ -1144,7 +1146,6 @@ class Netmap
     else
       false
 
-
   selected_rel_id: ->
     data = d3.selectAll($(".rel.selected")).data()
     return false if data.length != 1
@@ -1169,6 +1170,15 @@ class Netmap
     @svg.selectAll(".entitylabel2")
       .text((d) -> t.split_name(d.name)[1])
 
+  update_entity_images: ->
+    t = this
+    @svg.selectAll('.image')
+      .attr("xlink:href", (d) -> t.image_for_entity(d))
+      .attr("x", (d) -> if t.has_image(d) then -40 else -25)
+      .attr("y", (d) -> if t.has_image(d) then -40 else -25)
+      .attr("width", (d) -> if t.has_image(d) then 80 else 50)
+      .attr("height", (d) -> if t.has_image(d) then 80 else 50)
+
   set_entity_label: (id, label) ->
     entity = @entity_by_id(id)
 
@@ -1178,16 +1188,31 @@ class Netmap
     else
       false
 
+  set_entity_hide_image: (id, value) ->
+    entity = @entity_by_id(id)
+
+    if entity
+      entity.hide_image = value
+      @update_entity_images()
+    else
+      false
+
   selected_entity_id: ->
     data = d3.selectAll($(".entity.selected")).data()
     return false if data.length != 1
     data[0].id
 
+  get_selected_entity: ->
+    @entity_by_id(@selected_entity_id())    
+
   get_selected_entity_label: ->
-    @entity_by_id(@selected_entity_id()).name
+    @get_selected_entity().name
 
   set_selected_entity_label: (label) ->
     @set_entity_label(@selected_entity_id(), label)
+
+  set_selected_entity_hide_image: (value) ->
+    @set_entity_hide_image(@selected_entity_id(), value)
 
   selected_text_id: ->
     data = d3.selectAll($(".text.selected")).data()
@@ -1287,6 +1312,15 @@ class Netmap
 
   remove_text: (id) ->
     @_data.texts.splice(@text_index(id), 1)
+
+  image_for_entity: (e) ->
+    if e.hide_image
+      if e.primary_ext == 'Person'
+        'http://littlesis.s3.amazonaws.com/images/system/netmap-person.png'
+      else
+        'http://littlesis.s3.amazonaws.com/images/system/netmap-org.png'
+    else
+      e.image
 
 
 if typeof module != "undefined" && module.exports

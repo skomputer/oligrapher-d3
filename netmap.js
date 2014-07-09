@@ -249,18 +249,19 @@
     };
 
     Netmap.prototype.zoom_by = function(scale) {
-      var new_scale, svg_size, x_diff, y_diff;
+      var centered, new_scale, svg_size, x_diff, y_diff;
 
+      centered = this.centered_coordinates();
       svg_size = this.svg_size();
       new_scale = this.zoom.scale() * scale;
-      x_diff = 0;
-      y_diff = 0;
       if (new_scale < 0.5) {
         new_scale = 0.5;
       }
       if (new_scale > 2) {
         new_scale = 2;
       }
+      x_diff = (centered ? 0 : (new_scale - this.zoom.scale()) * svg_size.x);
+      y_diff = (centered ? 0 : (new_scale - this.zoom.scale()) * svg_size.y);
       this.zoom.scale(new_scale);
       this.zoom.translate([this.zoom.translate()[0] - x_diff / 2, this.zoom.translate()[1] - y_diff / 2]);
       return this.update_zoom();
@@ -315,7 +316,7 @@
       return $(document).on("keydown", function(e) {
         var d, rebuild, selected, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2;
 
-        if (!(t.editing_rel || t.editing_entity || t.editing_text)) {
+        if (!(t.clean_mode || t.editing_rel || t.editing_entity || t.editing_text)) {
           switch (e.keyCode) {
             case 8:
             case 46:
@@ -426,6 +427,9 @@
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
         e = _ref[i];
         entity_index[e.id] = i;
+        if (!e.hide_image) {
+          e.hide_image = false;
+        }
       }
       _ref1 = this._data.rels;
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
@@ -1297,8 +1301,12 @@
       return rel.classed("hovered", value);
     };
 
+    Netmap.prototype.has_image = function(d) {
+      return !d.hide_image && d.image.indexOf("netmap") === -1;
+    };
+
     Netmap.prototype.build_entities = function() {
-      var buttons, entities, entity_drag, groups, has_image, links, t, zoom;
+      var buttons, entities, entity_drag, groups, links, t, zoom;
 
       t = this;
       zoom = d3.selectAll("#zoom");
@@ -1349,9 +1357,6 @@
         }
         return _results;
       });
-      has_image = function(d) {
-        return d.image.indexOf("netmap") === -1;
-      };
       groups.append("circle").attr("class", "image-bg").attr("opacity", 1).attr("r", 28).attr("x", -29).attr("y", -29).attr("stroke", "white").attr("stroke-width", 0);
       groups.append("clipPath").attr("id", function(d) {
         return "image-clip-" + d.id;
@@ -1360,27 +1365,27 @@
         groups.append("rect").attr("class", "add_button_rect").attr("fill", "#fff").attr("opacity", 0.5).attr("width", 18).attr("height", 18).attr("x", 15).attr("y", -28).attr("rx", 5).attr("ry", 5);
       }
       groups.append("image").attr("class", "image").attr("xlink:href", function(d) {
-        return d.image;
+        return t.image_for_entity(d);
       }).attr("x", function(d) {
-        if (has_image(d)) {
+        if (t.has_image(d)) {
           return -40;
         } else {
           return -25;
         }
       }).attr("y", function(d) {
-        if (has_image(d)) {
+        if (t.has_image(d)) {
           return -40;
         } else {
           return -25;
         }
       }).attr("width", function(d) {
-        if (has_image(d)) {
+        if (t.has_image(d)) {
           return 80;
         } else {
           return 50;
         }
       }).attr("height", function(d) {
-        if (has_image(d)) {
+        if (t.has_image(d)) {
           return 80;
         } else {
           return 50;
@@ -1599,6 +1604,39 @@
       });
     };
 
+    Netmap.prototype.update_entity_images = function() {
+      var t;
+
+      t = this;
+      return this.svg.selectAll('.image').attr("xlink:href", function(d) {
+        return t.image_for_entity(d);
+      }).attr("x", function(d) {
+        if (t.has_image(d)) {
+          return -40;
+        } else {
+          return -25;
+        }
+      }).attr("y", function(d) {
+        if (t.has_image(d)) {
+          return -40;
+        } else {
+          return -25;
+        }
+      }).attr("width", function(d) {
+        if (t.has_image(d)) {
+          return 80;
+        } else {
+          return 50;
+        }
+      }).attr("height", function(d) {
+        if (t.has_image(d)) {
+          return 80;
+        } else {
+          return 50;
+        }
+      });
+    };
+
     Netmap.prototype.set_entity_label = function(id, label) {
       var entity;
 
@@ -1606,6 +1644,18 @@
       if (entity != null) {
         entity.name = label;
         return this.update_entity_labels();
+      } else {
+        return false;
+      }
+    };
+
+    Netmap.prototype.set_entity_hide_image = function(id, value) {
+      var entity;
+
+      entity = this.entity_by_id(id);
+      if (entity) {
+        entity.hide_image = value;
+        return this.update_entity_images();
       } else {
         return false;
       }
@@ -1621,12 +1671,20 @@
       return data[0].id;
     };
 
+    Netmap.prototype.get_selected_entity = function() {
+      return this.entity_by_id(this.selected_entity_id());
+    };
+
     Netmap.prototype.get_selected_entity_label = function() {
-      return this.entity_by_id(this.selected_entity_id()).name;
+      return this.get_selected_entity().name;
     };
 
     Netmap.prototype.set_selected_entity_label = function(label) {
       return this.set_entity_label(this.selected_entity_id(), label);
+    };
+
+    Netmap.prototype.set_selected_entity_hide_image = function(value) {
+      return this.set_entity_hide_image(this.selected_entity_id(), value);
     };
 
     Netmap.prototype.selected_text_id = function() {
@@ -1768,6 +1826,18 @@
 
     Netmap.prototype.remove_text = function(id) {
       return this._data.texts.splice(this.text_index(id), 1);
+    };
+
+    Netmap.prototype.image_for_entity = function(e) {
+      if (e.hide_image) {
+        if (e.primary_ext === 'Person') {
+          return 'http://littlesis.s3.amazonaws.com/images/system/netmap-person.png';
+        } else {
+          return 'http://littlesis.s3.amazonaws.com/images/system/netmap-org.png';
+        }
+      } else {
+        return e.image;
+      }
     };
 
     return Netmap;
