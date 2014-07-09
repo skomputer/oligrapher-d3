@@ -91,6 +91,7 @@ class Netmap
     @distance = 200
     @api = new LittlesisApi(key)
     @init_callbacks()
+    @current_only = false
 
   init_svg: ->
     @svg = d3.select(@parent_selector)
@@ -243,31 +244,46 @@ class Netmap
     )
 
     $(document).on("keydown", (e) ->
-      switch e.keyCode
-        # backspace, delete, "D", or "d"
-        when 8, 46, 68, 100  
-          rebuild = false
-          selected = $(".selected").length > 0
-          for d in d3.selectAll($(".rel.selected")).data()
-            t.remove_rel(d.id)      
-            rebuild = true
-          for d in d3.selectAll($(".entity.selected")).data()
-            t.remove_entity(d.id)
-            rebuild = true
-          t.build() if rebuild
-          e.preventDefault() if selected
-        # "A" or "a"
-        when 65, 97  
-          t.toggle_add_entity_form() if $("#svg:hover").length > 0
-        # "="
-        when 61, 187
-          t.zoom_by(1.2)
-        # "-"
-        when 173, 189
-          t.zoom_by(0.83333333333333)
-        # "0"
-        when 48
-          t.reset_zoom()
+      unless t.editing_rel or t.editing_entity or t.editing_text
+        switch e.keyCode
+          # backspace, delete, "D", or "d"
+          when 8, 46, 68, 100  
+            rebuild = false
+            selected = $(".selected").length > 0
+            for d in d3.selectAll($(".rel.selected")).data()
+              t.remove_rel(d.id)      
+              rebuild = true
+            for d in d3.selectAll($(".entity.selected")).data()
+              t.remove_entity(d.id)
+              rebuild = true
+            for d in d3.selectAll($(".text.selected")).data()
+              t.remove_text(d.id)
+              rebuild = true
+            t.build() if rebuild
+            $(window).trigger('selection') if selected
+            e.preventDefault() if selected
+          # "A" or "a"
+          when 65, 97  
+            if $("#svg:hover").length > 0
+              $(window).trigger('toggle_add_entity_form') 
+          # "T" or "t"
+          when 84, 116
+            if $("#svg:hover").length > 0
+              $(window).trigger('toggle_add_text_form')
+          # "="
+          when 61, 187
+            t.zoom_by(1.2)
+          # "-"
+          when 173, 189
+            t.zoom_by(0.83333333333333)
+          # "0"
+          when 48
+            t.reset_zoom()
+          # "S" or "s"
+          when 83, 115
+            t.deselect_all()
+            e = $('.entity')[0]
+            $(window).trigger('selection', e) if e
     )
     
   toggle_add_entity_form: ->
@@ -287,14 +303,14 @@ class Netmap
     form.css("display", if form.css("display") == "none" then "block" else "none")
                     
   set_data: (data, center_entity_id = null) ->
-    @_original_data = { "entities": data.entities.slice(0), "rels": data.rels.slice(0) }
+    @_original_data = {}
+    for key, value of data
+      @_original_data[key] = value.slice(0)
     @_data = data    
     @set_center_entity_id(center_entity_id) if center_entity_id?
     entity_index = []
     @rel_groups = {}
     for e, i in @_data.entities
-      e.px = e.x unless e.px?
-      e.py = e.y unless e.py?
       entity_index[e.id] = i
     for r in @_data.rels
       if typeof r.x1 == "undefined"
@@ -314,6 +330,8 @@ class Netmap
         obj = {}
         obj[max] = [r.id]
         @rel_groups[min] = obj
+
+    @_data['texts'] = [] unless @_data.texts
 
   data: ->
     @_data
@@ -394,10 +412,12 @@ class Netmap
       )
       new_data = {
         "entities": t.data().entities.concat(data.entities),
-        "rels": t.data().rels.concat(data.rels)
+        "rels": t.data().rels.concat(data.rels),
+        "texts": (if t.data().texts then t.data().texts else [])
       };
       t.set_data(new_data)
       t.build()
+      t.limit_to_current() if t.current_only
     )
 
   add_related_entities: (entity_id, num = 10, include_cats = []) ->
@@ -408,10 +428,11 @@ class Netmap
       data.entities = t.circle_entities_around_point(data.entities, [entity.x, entity.y])
       t.set_data({
         "entities": t.data().entities.concat(data.entities),
-        "rels": t.data().rels.concat(data.rels)
+        "rels": t.data().rels.concat(data.rels),
+        "texts": (if t.data().texts then t.data().texts else [])   
       })
-      # t.move_entities_inbounds()
       t.build()
+      t.limit_to_current() if t.current_only
     )
     true
 
@@ -438,6 +459,7 @@ class Netmap
   show_all_rels: ->
     for rel in @_data.rels
       delete rel["hidden"]
+    @current_only = false
     @build()
 
   limit_to_cats: (cat_ids) ->
@@ -457,6 +479,7 @@ class Netmap
         rel.hidden = false
       else
         rel.hidden = true
+    @current_only = true
     @build()
 
   remove_hidden_rels: ->
@@ -680,6 +703,10 @@ class Netmap
         m + q
       )
 
+    d3.selectAll('.text text')
+      .attr('x', (d) -> d.x)
+      .attr('y', (d) -> d.y)
+
     # BREAKS INTERNET EXPLORER
     #
     # d3.selectAll(".line:not(.highlight)")
@@ -734,6 +761,7 @@ class Netmap
   build: ->
     @build_rels()
     @build_entities()
+    @build_texts()
     @entities_on_top()
     @update_positions() if @has_positions()
 
@@ -816,6 +844,7 @@ class Netmap
       .attr("dy", -6)
       .attr("text-anchor", "middle")
       .append("textPath")
+      .attr("class", "labelpath")
       .attr("startOffset", "50%")
       .attr("xlink:href", (d) -> 
         "#path-" + d.id
@@ -824,11 +853,7 @@ class Netmap
 
     rels.exit().remove()
 
-    d3.selectAll(".line:not(.highlight):not(.bg)")
-      .style("stroke-dasharray", (d) ->
-        return "5,2" if (d.is_current == 0 || d.is_current == null || d.end_date)
-        ""
-      )
+    @update_rel_is_currents()
 
     # hide hidden rels
     rels.style("display", (d) -> if d.hidden == true then "none" else null)
@@ -840,19 +865,26 @@ class Netmap
       .data(@_data["rels"], (d) -> return d.id)
     @svg.selectAll(".rel text")
       .data(@_data["rels"], (d) -> return d.id)
+    @svg.selectAll(".rel textpath")
+      .data(@_data["rels"], (d) -> return d.id)
     
     @svg.selectAll(".rel").on("click", (d, i) ->
       t.toggle_selected_rel(d.id)
+      $(window).trigger('selection', this)
     )
 
   toggle_selected_rel: (id, value = null) ->
+    t = this
     rel = d3.select("#rel-" + id + ".rel")
 
     rel.classed("selected", (d, i) ->
       if value == true or value == false
+        t.deselect_all()
         return value
       else
-        return !rel.classed("selected")
+        value = !rel.classed("selected")
+        t.deselect_all()
+        return value
     )
 
   toggle_hovered_rel: (id, value = null) ->
@@ -872,8 +904,6 @@ class Netmap
         d3.event.sourceEvent.stopPropagation()
       )
       .on("drag", (d, i) ->
-        d.px += d3.event.dx
-        d.py += d3.event.dy
         d.x += d3.event.dx
         d.y += d3.event.dy
 
@@ -909,7 +939,7 @@ class Netmap
     groups.append("circle")
       .attr("class", "image-bg")
       .attr("opacity", 1)
-      .attr("r", 25)
+      .attr("r", 28)
       .attr("x", -29)
       .attr("y", -29)
       .attr("stroke", "white")
@@ -966,15 +996,17 @@ class Netmap
       .attr("title", (d) -> d.description)
     
     links.append("text")
+      .attr("class", "entitylabel1")
       .attr("dx", 0)
       .attr("dy", 38) # (d) -> if has_image(d) then 40 else 25)
-      .attr("text-anchor","middle")
+      .attr("text-anchor", "middle")
       .text((d) -> t.split_name(d.name)[0])
 
     links.append("text")
+      .attr("class", "entitylabel2")
       .attr("dx", 0)
       .attr("dy", 55) # (d) -> if has_image(d) then 55 else 40)
-      .attr("text-anchor","middle")
+      .attr("text-anchor", "middle")
       .text((d) -> t.split_name(d.name)[1])
 
     # one or two rectangles behind the entity name
@@ -1019,6 +1051,7 @@ class Netmap
     @svg.selectAll(".entity").on("click", (d, i) ->
       $('#zoom').append(this)      
       t.toggle_selected_entity(d.id) unless t.drag
+      $(window).trigger('selection', this) unless t.drag
     )
 
     @svg.selectAll(".entity a").on("click", (d, i) ->
@@ -1034,12 +1067,13 @@ class Netmap
   toggle_selected_entity: (id) ->
     g = $("#entity-" + id + ".entity")
     klass = if g.attr("class") == "entity" then "entity selected" else "entity"
+    @deselect_all()
     g.attr("class", klass)
     
-    # toggle selection for entity's relationships (so that they're selected
-    selected = (g.attr("class") == "entity selected")
-    for r in @rels_by_entity(id)
-      @toggle_selected_rel(r.id, selected)
+    # toggle selection for entity's relationships
+    # selected = (g.attr("class") == "entity selected")
+    # for r in @rels_by_entity(id)
+    #   @toggle_selected_rel(r.id, selected)
   
   entities_on_top: ->
     zoom = $("#zoom")
@@ -1079,7 +1113,181 @@ class Netmap
     @entities().filter((e) ->
       e.x < 0 or e.y < 0
     ).length > 1
-      
+
+  update_rel_labels: ->
+    @svg.selectAll(".labelpath")
+      .text((d) -> d.label)
+
+  update_rel_is_currents: ->
+    d3.selectAll(".line:not(.highlight):not(.bg)")
+      .style("stroke-dasharray", (d) ->
+        return "5,2" if (d.is_current == 0 || d.is_current == null || d.end_date)
+        ""
+      )
+
+  set_rel_label: (id, label) ->
+    rel = @rel_by_id(id)
+
+    if rel
+      rel.label = label
+      @update_rel_labels()
+    else
+      false
+
+  set_rel_is_current: (id, value) ->
+    rel = @rel_by_id(id)
+
+    if rel
+      rel.is_current = value
+      @update_rel_is_currents()
+    else
+      false
+
+
+  selected_rel_id: ->
+    data = d3.selectAll($(".rel.selected")).data()
+    return false if data.length != 1
+    data[0].id
+
+  get_selected_rel_label: ->
+    @rel_by_id(@selected_rel_id()).label
+
+  set_selected_rel_label: (label) ->
+    @set_rel_label(@selected_rel_id(), label)
+
+  selected_rel_is_current: ->
+    !!@rel_by_id(@selected_rel_id()).is_current
+
+  set_selected_rel_is_current: (value) ->
+    @set_rel_is_current(@selected_rel_id(), value)
+
+  update_entity_labels: ->
+    t = this
+    @svg.selectAll(".entitylabel1")
+      .text((d) -> t.split_name(d.name)[0])
+    @svg.selectAll(".entitylabel2")
+      .text((d) -> t.split_name(d.name)[1])
+
+  set_entity_label: (id, label) ->
+    entity = @entity_by_id(id)
+
+    if entity?
+      entity.name = label
+      @update_entity_labels()
+    else
+      false
+
+  selected_entity_id: ->
+    data = d3.selectAll($(".entity.selected")).data()
+    return false if data.length != 1
+    data[0].id
+
+  get_selected_entity_label: ->
+    @entity_by_id(@selected_entity_id()).name
+
+  set_selected_entity_label: (label) ->
+    @set_entity_label(@selected_entity_id(), label)
+
+  selected_text_id: ->
+    data = d3.selectAll($(".text.selected")).data()
+    return false if data.length != 1
+    data[0].id
+
+  get_selected_text_content: ->
+    i = @selected_text_id()
+    return false if i == false
+    @text_by_id(i).text
+
+  set_selected_text_content: (content) ->
+    @set_text_content(@selected_text_id(), content)
+
+  set_text_content: (id, content) ->
+    text = @text_by_id(id)
+
+    if text?
+      text.text = content
+      @update_text_contents()
+    else
+      false
+
+  update_text_contents: ->
+    @svg.selectAll(".text text")
+      .text((d) -> d.text)
+
+  deselect_all: ->
+    @svg.selectAll('.selected').classed('selected', false)
+
+  build_texts: ->
+    t = this
+    zoom = d3.selectAll("#zoom")
+
+    # texts are made of groups of parts...
+    texts = zoom.selectAll(".text")
+      .data(@_data["texts"], (d) -> return d.id)
+
+    text_drag = d3.behavior.drag()
+      .on("dragstart", (d, i) ->
+        t.drag = false
+        d3.event.sourceEvent.preventDefault()
+        d3.event.sourceEvent.stopPropagation()
+      )
+      .on("drag", (d, i) ->
+        d.x += d3.event.dx
+        d.y += d3.event.dy
+
+        t.update_positions()
+        t.drag = true
+      )
+    
+    groups = texts.enter().append("g")
+      .attr('id', (d, i) -> 'text-' + d.id)
+      .attr("class", "text")
+      .call(text_drag)
+
+    groups.append("text")
+      .attr('fill', '#888')
+      .attr('x', (d) -> d.x)
+      .attr('y', (d) -> d.y)
+      .text((d) -> d.text)
+
+    @svg.selectAll(".text").on("click", (d, i) ->
+      t.toggle_selected_text(d.id) unless t.drag
+      $(window).trigger('selection', this) unless t.drag
+    )
+
+    texts.exit().remove()
+
+  add_text: (text, x, y) ->
+    @_data["texts"].push({
+      'text': text,
+      'x': x,
+      'y': y,
+      id: @next_text_id()
+    })
+    @build_texts()
+
+  next_text_id: ->
+    ids = @data().texts.map((t) -> t.id)
+    Math.max(ids) + 1
+
+  toggle_selected_text: (id) ->
+    g = $("#text-" + id)
+    klass = if g.attr("class") == "text" then "text selected" else "text"
+    @deselect_all()
+    g.attr("class", klass)    
+
+  text_index: (id) ->
+    for t, i in @data().texts
+      return i if parseInt(t.id) == parseInt(id)
+
+  text_by_id: (id) ->
+    for t, i in @data().texts
+      return t if parseInt(t.id) == parseInt(id)
+
+  remove_text: (id) ->
+    @_data.texts.splice(@text_index(id), 1)
+
+
 if typeof module != "undefined" && module.exports
   # on a server
   exports.Netmap = Netmap

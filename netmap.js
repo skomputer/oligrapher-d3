@@ -143,6 +143,7 @@
       this.distance = 200;
       this.api = new LittlesisApi(key);
       this.init_callbacks();
+      this.current_only = false;
     }
 
     Netmap.prototype.init_svg = function() {
@@ -307,48 +308,72 @@
         return t.mouse_y = e.pageY;
       });
       return $(document).on("keydown", function(e) {
-        var d, rebuild, selected, _i, _j, _len, _len1, _ref, _ref1;
+        var d, rebuild, selected, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2;
 
-        switch (e.keyCode) {
-          case 8:
-          case 46:
-          case 68:
-          case 100:
-            rebuild = false;
-            selected = $(".selected").length > 0;
-            _ref = d3.selectAll($(".rel.selected")).data();
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              d = _ref[_i];
-              t.remove_rel(d.id);
-              rebuild = true;
-            }
-            _ref1 = d3.selectAll($(".entity.selected")).data();
-            for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-              d = _ref1[_j];
-              t.remove_entity(d.id);
-              rebuild = true;
-            }
-            if (rebuild) {
-              t.build();
-            }
-            if (selected) {
-              return e.preventDefault();
-            }
-            break;
-          case 65:
-          case 97:
-            if ($("#svg:hover").length > 0) {
-              return t.toggle_add_entity_form();
-            }
-            break;
-          case 61:
-          case 187:
-            return t.zoom_by(1.2);
-          case 173:
-          case 189:
-            return t.zoom_by(0.83333333333333);
-          case 48:
-            return t.reset_zoom();
+        if (!(t.editing_rel || t.editing_entity || t.editing_text)) {
+          switch (e.keyCode) {
+            case 8:
+            case 46:
+            case 68:
+            case 100:
+              rebuild = false;
+              selected = $(".selected").length > 0;
+              _ref = d3.selectAll($(".rel.selected")).data();
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                d = _ref[_i];
+                t.remove_rel(d.id);
+                rebuild = true;
+              }
+              _ref1 = d3.selectAll($(".entity.selected")).data();
+              for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+                d = _ref1[_j];
+                t.remove_entity(d.id);
+                rebuild = true;
+              }
+              _ref2 = d3.selectAll($(".text.selected")).data();
+              for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+                d = _ref2[_k];
+                t.remove_text(d.id);
+                rebuild = true;
+              }
+              if (rebuild) {
+                t.build();
+              }
+              if (selected) {
+                $(window).trigger('selection');
+              }
+              if (selected) {
+                return e.preventDefault();
+              }
+              break;
+            case 65:
+            case 97:
+              if ($("#svg:hover").length > 0) {
+                return $(window).trigger('toggle_add_entity_form');
+              }
+              break;
+            case 84:
+            case 116:
+              if ($("#svg:hover").length > 0) {
+                return $(window).trigger('toggle_add_text_form');
+              }
+              break;
+            case 61:
+            case 187:
+              return t.zoom_by(1.2);
+            case 173:
+            case 189:
+              return t.zoom_by(0.83333333333333);
+            case 48:
+              return t.reset_zoom();
+            case 83:
+            case 115:
+              t.deselect_all();
+              e = $('.entity')[0];
+              if (e) {
+                return $(window).trigger('selection', e);
+              }
+          }
         }
       });
     };
@@ -376,15 +401,16 @@
     };
 
     Netmap.prototype.set_data = function(data, center_entity_id) {
-      var e, entity_index, i, max, min, obj, r, _i, _j, _len, _len1, _ref, _ref1, _results;
+      var e, entity_index, i, key, max, min, obj, r, value, _i, _j, _len, _len1, _ref, _ref1;
 
       if (center_entity_id == null) {
         center_entity_id = null;
       }
-      this._original_data = {
-        "entities": data.entities.slice(0),
-        "rels": data.rels.slice(0)
-      };
+      this._original_data = {};
+      for (key in data) {
+        value = data[key];
+        this._original_data[key] = value.slice(0);
+      }
       this._data = data;
       if (center_entity_id != null) {
         this.set_center_entity_id(center_entity_id);
@@ -394,16 +420,9 @@
       _ref = this._data.entities;
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
         e = _ref[i];
-        if (e.px == null) {
-          e.px = e.x;
-        }
-        if (e.py == null) {
-          e.py = e.y;
-        }
         entity_index[e.id] = i;
       }
       _ref1 = this._data.rels;
-      _results = [];
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         r = _ref1[_j];
         if (typeof r.x1 === "undefined") {
@@ -416,17 +435,19 @@
         max = Math.max(r.entity1_id, r.entity2_id);
         if (this.rel_groups[min]) {
           if (this.rel_groups[min][max]) {
-            _results.push(this.rel_groups[min][max].push(r.id));
+            this.rel_groups[min][max].push(r.id);
           } else {
-            _results.push(this.rel_groups[min][max] = [r.id]);
+            this.rel_groups[min][max] = [r.id];
           }
         } else {
           obj = {};
           obj[max] = [r.id];
-          _results.push(this.rel_groups[min] = obj);
+          this.rel_groups[min] = obj;
         }
       }
-      return _results;
+      if (!this._data.texts) {
+        return this._data['texts'] = [];
+      }
     };
 
     Netmap.prototype.data = function() {
@@ -581,10 +602,14 @@
         });
         new_data = {
           "entities": t.data().entities.concat(data.entities),
-          "rels": t.data().rels.concat(data.rels)
+          "rels": t.data().rels.concat(data.rels),
+          "texts": (t.data().texts ? t.data().texts : [])
         };
         t.set_data(new_data);
-        return t.build();
+        t.build();
+        if (t.current_only) {
+          return t.limit_to_current();
+        }
       });
     };
 
@@ -606,9 +631,13 @@
         data.entities = t.circle_entities_around_point(data.entities, [entity.x, entity.y]);
         t.set_data({
           "entities": t.data().entities.concat(data.entities),
-          "rels": t.data().rels.concat(data.rels)
+          "rels": t.data().rels.concat(data.rels),
+          "texts": (t.data().texts ? t.data().texts : [])
         });
-        return t.build();
+        t.build();
+        if (t.current_only) {
+          return t.limit_to_current();
+        }
       });
       return true;
     };
@@ -673,6 +702,7 @@
         rel = _ref[_i];
         delete rel["hidden"];
       }
+      this.current_only = false;
       return this.build();
     };
 
@@ -709,6 +739,7 @@
           rel.hidden = true;
         }
       }
+      this.current_only = true;
       return this.build();
     };
 
@@ -1011,7 +1042,7 @@
       d3.selectAll(".rel").attr("transform", function(d) {
         return "translate(" + (d.source.x + d.target.x) / 2 + "," + (d.source.y + d.target.y) / 2 + ")";
       });
-      return d3.selectAll(".line").attr("d", function(d) {
+      d3.selectAll(".line").attr("d", function(d) {
         var ax, ay, dr, dx, dxm1, dxm2, dy, dym1, dym2, m, n, node_radius, q, rm1, rm2, spacing, x1, xa, xb, xm1, xm2, y1, ya, yb, ym1, ym2;
 
         dx = d.target.x - d.source.x;
@@ -1050,6 +1081,11 @@
         m = "M" + (xa - xm1) + "," + (ya - ym1);
         q = "Q" + x1 + "," + y1 + "," + (xb - xm2) + "," + (yb - ym2);
         return m + q;
+      });
+      return d3.selectAll('.text text').attr('x', function(d) {
+        return d.x;
+      }).attr('y', function(d) {
+        return d.y;
       });
     };
 
@@ -1115,6 +1151,7 @@
     Netmap.prototype.build = function() {
       this.build_rels();
       this.build_entities();
+      this.build_texts();
       this.entities_on_top();
       if (this.has_positions()) {
         return this.update_positions();
@@ -1193,18 +1230,13 @@
       });
       groups.append("a").attr("xlink:href", function(d) {
         return d.url;
-      }).append("text").attr("class", "label").attr("dy", -6).attr("text-anchor", "middle").append("textPath").attr("startOffset", "50%").attr("xlink:href", function(d) {
+      }).append("text").attr("class", "label").attr("dy", -6).attr("text-anchor", "middle").append("textPath").attr("class", "labelpath").attr("startOffset", "50%").attr("xlink:href", function(d) {
         return "#path-" + d.id;
       }).text(function(d) {
         return d.label;
       });
       rels.exit().remove();
-      d3.selectAll(".line:not(.highlight):not(.bg)").style("stroke-dasharray", function(d) {
-        if (d.is_current === 0 || d.is_current === null || d.end_date) {
-          return "5,2";
-        }
-        return "";
-      });
+      this.update_rel_is_currents();
       rels.style("display", function(d) {
         if (d.hidden === true) {
           return "none";
@@ -1221,23 +1253,31 @@
       this.svg.selectAll(".rel text").data(this._data["rels"], function(d) {
         return d.id;
       });
+      this.svg.selectAll(".rel textpath").data(this._data["rels"], function(d) {
+        return d.id;
+      });
       return this.svg.selectAll(".rel").on("click", function(d, i) {
-        return t.toggle_selected_rel(d.id);
+        t.toggle_selected_rel(d.id);
+        return $(window).trigger('selection', this);
       });
     };
 
     Netmap.prototype.toggle_selected_rel = function(id, value) {
-      var rel;
+      var rel, t;
 
       if (value == null) {
         value = null;
       }
+      t = this;
       rel = d3.select("#rel-" + id + ".rel");
       return rel.classed("selected", function(d, i) {
         if (value === true || value === false) {
+          t.deselect_all();
           return value;
         } else {
-          return !rel.classed("selected");
+          value = !rel.classed("selected");
+          t.deselect_all();
+          return value;
         }
       });
     };
@@ -1268,8 +1308,6 @@
         d3.event.sourceEvent.preventDefault();
         return d3.event.sourceEvent.stopPropagation();
       }).on("drag", function(d, i) {
-        d.px += d3.event.dx;
-        d.py += d3.event.dy;
         d.x += d3.event.dx;
         d.y += d3.event.dy;
         t.update_positions();
@@ -1309,7 +1347,7 @@
       has_image = function(d) {
         return d.image.indexOf("netmap") === -1;
       };
-      groups.append("circle").attr("class", "image-bg").attr("opacity", 1).attr("r", 25).attr("x", -29).attr("y", -29).attr("stroke", "white").attr("stroke-width", 0);
+      groups.append("circle").attr("class", "image-bg").attr("opacity", 1).attr("r", 28).attr("x", -29).attr("y", -29).attr("stroke", "white").attr("stroke-width", 0);
       groups.append("clipPath").attr("id", function(d) {
         return "image-clip-" + d.id;
       }).append("circle").attr("class", "image-clip").attr("opacity", 1).attr("r", 25).attr("x", -29).attr("y", -29);
@@ -1356,10 +1394,10 @@
       }).attr("title", function(d) {
         return d.description;
       });
-      links.append("text").attr("dx", 0).attr("dy", 38).attr("text-anchor", "middle").text(function(d) {
+      links.append("text").attr("class", "entitylabel1").attr("dx", 0).attr("dy", 38).attr("text-anchor", "middle").text(function(d) {
         return t.split_name(d.name)[0];
       });
-      links.append("text").attr("dx", 0).attr("dy", 55).attr("text-anchor", "middle").text(function(d) {
+      links.append("text").attr("class", "entitylabel2").attr("dx", 0).attr("dy", 55).attr("text-anchor", "middle").text(function(d) {
         return t.split_name(d.name)[1];
       });
       groups.filter(function(d) {
@@ -1395,7 +1433,10 @@
       this.svg.selectAll(".entity").on("click", function(d, i) {
         $('#zoom').append(this);
         if (!t.drag) {
-          return t.toggle_selected_entity(d.id);
+          t.toggle_selected_entity(d.id);
+        }
+        if (!t.drag) {
+          return $(window).trigger('selection', this);
         }
       });
       return this.svg.selectAll(".entity a").on("click", function(d, i) {
@@ -1415,19 +1456,12 @@
     };
 
     Netmap.prototype.toggle_selected_entity = function(id) {
-      var g, klass, r, selected, _i, _len, _ref, _results;
+      var g, klass;
 
       g = $("#entity-" + id + ".entity");
       klass = g.attr("class") === "entity" ? "entity selected" : "entity";
-      g.attr("class", klass);
-      selected = g.attr("class") === "entity selected";
-      _ref = this.rels_by_entity(id);
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        r = _ref[_i];
-        _results.push(this.toggle_selected_rel(r.id, selected));
-      }
-      return _results;
+      this.deselect_all();
+      return g.attr("class", klass);
     };
 
     Netmap.prototype.entities_on_top = function() {
@@ -1480,6 +1514,254 @@
       return this.entities().filter(function(e) {
         return e.x < 0 || e.y < 0;
       }).length > 1;
+    };
+
+    Netmap.prototype.update_rel_labels = function() {
+      return this.svg.selectAll(".labelpath").text(function(d) {
+        return d.label;
+      });
+    };
+
+    Netmap.prototype.update_rel_is_currents = function() {
+      return d3.selectAll(".line:not(.highlight):not(.bg)").style("stroke-dasharray", function(d) {
+        if (d.is_current === 0 || d.is_current === null || d.end_date) {
+          return "5,2";
+        }
+        return "";
+      });
+    };
+
+    Netmap.prototype.set_rel_label = function(id, label) {
+      var rel;
+
+      rel = this.rel_by_id(id);
+      if (rel) {
+        rel.label = label;
+        return this.update_rel_labels();
+      } else {
+        return false;
+      }
+    };
+
+    Netmap.prototype.set_rel_is_current = function(id, value) {
+      var rel;
+
+      rel = this.rel_by_id(id);
+      if (rel) {
+        rel.is_current = value;
+        return this.update_rel_is_currents();
+      } else {
+        return false;
+      }
+    };
+
+    Netmap.prototype.selected_rel_id = function() {
+      var data;
+
+      data = d3.selectAll($(".rel.selected")).data();
+      if (data.length !== 1) {
+        return false;
+      }
+      return data[0].id;
+    };
+
+    Netmap.prototype.get_selected_rel_label = function() {
+      return this.rel_by_id(this.selected_rel_id()).label;
+    };
+
+    Netmap.prototype.set_selected_rel_label = function(label) {
+      return this.set_rel_label(this.selected_rel_id(), label);
+    };
+
+    Netmap.prototype.selected_rel_is_current = function() {
+      return !!this.rel_by_id(this.selected_rel_id()).is_current;
+    };
+
+    Netmap.prototype.set_selected_rel_is_current = function(value) {
+      return this.set_rel_is_current(this.selected_rel_id(), value);
+    };
+
+    Netmap.prototype.update_entity_labels = function() {
+      var t;
+
+      t = this;
+      this.svg.selectAll(".entitylabel1").text(function(d) {
+        return t.split_name(d.name)[0];
+      });
+      return this.svg.selectAll(".entitylabel2").text(function(d) {
+        return t.split_name(d.name)[1];
+      });
+    };
+
+    Netmap.prototype.set_entity_label = function(id, label) {
+      var entity;
+
+      entity = this.entity_by_id(id);
+      if (entity != null) {
+        entity.name = label;
+        return this.update_entity_labels();
+      } else {
+        return false;
+      }
+    };
+
+    Netmap.prototype.selected_entity_id = function() {
+      var data;
+
+      data = d3.selectAll($(".entity.selected")).data();
+      if (data.length !== 1) {
+        return false;
+      }
+      return data[0].id;
+    };
+
+    Netmap.prototype.get_selected_entity_label = function() {
+      return this.entity_by_id(this.selected_entity_id()).name;
+    };
+
+    Netmap.prototype.set_selected_entity_label = function(label) {
+      return this.set_entity_label(this.selected_entity_id(), label);
+    };
+
+    Netmap.prototype.selected_text_id = function() {
+      var data;
+
+      data = d3.selectAll($(".text.selected")).data();
+      if (data.length !== 1) {
+        return false;
+      }
+      return data[0].id;
+    };
+
+    Netmap.prototype.get_selected_text_content = function() {
+      var i;
+
+      i = this.selected_text_id();
+      if (i === false) {
+        return false;
+      }
+      return this.text_by_id(i).text;
+    };
+
+    Netmap.prototype.set_selected_text_content = function(content) {
+      return this.set_text_content(this.selected_text_id(), content);
+    };
+
+    Netmap.prototype.set_text_content = function(id, content) {
+      var text;
+
+      text = this.text_by_id(id);
+      if (text != null) {
+        text.text = content;
+        return this.update_text_contents();
+      } else {
+        return false;
+      }
+    };
+
+    Netmap.prototype.update_text_contents = function() {
+      return this.svg.selectAll(".text text").text(function(d) {
+        return d.text;
+      });
+    };
+
+    Netmap.prototype.deselect_all = function() {
+      return this.svg.selectAll('.selected').classed('selected', false);
+    };
+
+    Netmap.prototype.build_texts = function() {
+      var groups, t, text_drag, texts, zoom;
+
+      t = this;
+      zoom = d3.selectAll("#zoom");
+      texts = zoom.selectAll(".text").data(this._data["texts"], function(d) {
+        return d.id;
+      });
+      text_drag = d3.behavior.drag().on("dragstart", function(d, i) {
+        t.drag = false;
+        d3.event.sourceEvent.preventDefault();
+        return d3.event.sourceEvent.stopPropagation();
+      }).on("drag", function(d, i) {
+        d.x += d3.event.dx;
+        d.y += d3.event.dy;
+        t.update_positions();
+        return t.drag = true;
+      });
+      groups = texts.enter().append("g").attr('id', function(d, i) {
+        return 'text-' + d.id;
+      }).attr("class", "text").call(text_drag);
+      groups.append("text").attr('fill', '#888').attr('x', function(d) {
+        return d.x;
+      }).attr('y', function(d) {
+        return d.y;
+      }).text(function(d) {
+        return d.text;
+      });
+      this.svg.selectAll(".text").on("click", function(d, i) {
+        if (!t.drag) {
+          t.toggle_selected_text(d.id);
+        }
+        if (!t.drag) {
+          return $(window).trigger('selection', this);
+        }
+      });
+      return texts.exit().remove();
+    };
+
+    Netmap.prototype.add_text = function(text, x, y) {
+      this._data["texts"].push({
+        'text': text,
+        'x': x,
+        'y': y,
+        id: this.next_text_id()
+      });
+      return this.build_texts();
+    };
+
+    Netmap.prototype.next_text_id = function() {
+      var ids;
+
+      ids = this.data().texts.map(function(t) {
+        return t.id;
+      });
+      return Math.max(ids) + 1;
+    };
+
+    Netmap.prototype.toggle_selected_text = function(id) {
+      var g, klass;
+
+      g = $("#text-" + id);
+      klass = g.attr("class") === "text" ? "text selected" : "text";
+      this.deselect_all();
+      return g.attr("class", klass);
+    };
+
+    Netmap.prototype.text_index = function(id) {
+      var i, t, _i, _len, _ref;
+
+      _ref = this.data().texts;
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        t = _ref[i];
+        if (parseInt(t.id) === parseInt(id)) {
+          return i;
+        }
+      }
+    };
+
+    Netmap.prototype.text_by_id = function(id) {
+      var i, t, _i, _len, _ref;
+
+      _ref = this.data().texts;
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        t = _ref[i];
+        if (parseInt(t.id) === parseInt(id)) {
+          return t;
+        }
+      }
+    };
+
+    Netmap.prototype.remove_text = function(id) {
+      return this._data.texts.splice(this.text_index(id), 1);
     };
 
     return Netmap;
