@@ -133,6 +133,8 @@
       }
       this.width = width;
       this.height = height;
+      this.min_zoom = 0.5;
+      this.max_zoom = 2;
       this.parent_selector = parent_selector;
       this.clean_mode = clean_mode;
       this.init_svg();
@@ -159,7 +161,7 @@
       marker2 = this.svg.append("marker").attr("id", "marker2").attr("viewBox", "-10 -5 10 10").attr("refX", -10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L-10,0L0,5");
       defs = this.svg.append("defs");
       this.zoom = d3.behavior.zoom();
-      this.zoom.scaleExtent([0.5, 5]);
+      this.zoom.scaleExtent([this.min_zoom, this.max_zoom]);
       t = this;
       zoom_func = function() {
         var scale, trans;
@@ -173,21 +175,26 @@
     };
 
     Netmap.prototype.compute_graph_center = function() {
-      var entities, rels;
+      var entities, xs, ys;
 
       entities = this.entities();
-      rels = this.rels();
-      return {
-        x: entities.map(function(e) {
+      xs = entities.map(function(e) {
+        if (e.x) {
           return e.x;
-        }).reduce(function(a, b) {
-          return a + b;
-        }) / entities.length,
-        y: entities.map(function(e) {
+        } else {
+          return 0;
+        }
+      });
+      ys = entities.map(function(e) {
+        if (e.y) {
           return e.y;
-        }).reduce(function(a, b) {
-          return a + b;
-        }) / entities.length
+        } else {
+          return 0;
+        }
+      });
+      return {
+        x: (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2,
+        y: (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2
       };
     };
 
@@ -246,8 +253,14 @@
 
       svg_size = this.svg_size();
       new_scale = this.zoom.scale() * scale;
-      x_diff = (new_scale - this.zoom.scale()) * svg_size.x;
-      y_diff = (new_scale - this.zoom.scale()) * svg_size.y;
+      x_diff = 0;
+      y_diff = 0;
+      if (new_scale < 0.5) {
+        new_scale = 0.5;
+      }
+      if (new_scale > 2) {
+        new_scale = 2;
+      }
       this.zoom.scale(new_scale);
       this.zoom.translate([this.zoom.translate()[0] - x_diff / 2, this.zoom.translate()[1] - y_diff / 2]);
       return this.update_zoom();
@@ -265,14 +278,6 @@
     Netmap.prototype.reset_zoom = function() {
       this.zoom.scale(1);
       this.auto_center();
-      return this.update_zoom();
-    };
-
-    Netmap.prototype.set_scale = function(scale) {
-      if (scale == null) {
-        scale = 1;
-      }
-      this.zoom.scale(scale);
       return this.update_zoom();
     };
 
@@ -1508,12 +1513,13 @@
     };
 
     Netmap.prototype.centered_coordinates = function() {
+      var center;
+
       if (this.entities().length === 0) {
         return true;
       }
-      return this.entities().filter(function(e) {
-        return e.x < 0 || e.y < 0;
-      }).length > 1;
+      center = this.compute_graph_center();
+      return center.x < 200 && center.y < 200;
     };
 
     Netmap.prototype.update_rel_labels = function() {

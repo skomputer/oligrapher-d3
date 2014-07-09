@@ -81,6 +81,8 @@ class Netmap
   constructor: (width, height, parent_selector, key, clean_mode = true) ->
     @width = width
     @height = height
+    @min_zoom = 0.5
+    @max_zoom = 2
     @parent_selector = parent_selector
     @clean_mode = clean_mode
     @init_svg()
@@ -146,7 +148,7 @@ class Netmap
     defs = @svg.append("defs")
 
     @zoom = d3.behavior.zoom()
-    @zoom.scaleExtent([0.5, 5])
+    @zoom.scaleExtent([@min_zoom, @max_zoom])
     t = this
     zoom_func = ->
       t.update_zoom()
@@ -157,11 +159,13 @@ class Netmap
 
   compute_graph_center: ->
     entities = @entities()
-    rels = @rels()
 
-    { 
-      x: entities.map((e) -> e.x).reduce((a, b) -> a + b)/entities.length,
-      y: entities.map((e) -> e.y).reduce((a, b) -> a + b)/entities.length,      
+    xs = entities.map((e) -> if e.x then e.x else 0)
+    ys = entities.map((e) -> if e.y then e.y else 0)   
+
+    {
+      x: (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2
+      y: (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2
     }
 
   svg_size: ->
@@ -194,8 +198,10 @@ class Netmap
   zoom_by: (scale) ->
     svg_size = @svg_size()
     new_scale = @zoom.scale() * scale
-    x_diff = (new_scale - @zoom.scale()) * svg_size.x
-    y_diff = (new_scale - @zoom.scale()) * svg_size.y
+    x_diff = 0 # (new_scale - @zoom.scale()) * svg_size.x
+    y_diff = 0 # (new_scale - @zoom.scale()) * svg_size.y
+    new_scale = 0.5 if new_scale < 0.5
+    new_scale = 2 if new_scale > 2
     @zoom.scale(new_scale)
     @zoom.translate([@zoom.translate()[0]-x_diff/2, @zoom.translate()[1]-y_diff/2])
     @update_zoom()
@@ -210,10 +216,6 @@ class Netmap
   reset_zoom: ->
     @zoom.scale(1)
     @auto_center()
-    @update_zoom()
-
-  set_scale: (scale=1) ->
-    @zoom.scale(scale)
     @update_zoom()
 
   set_translate: (x, y) ->
@@ -1110,9 +1112,8 @@ class Netmap
 
   centered_coordinates: ->
     return true if @entities().length == 0
-    @entities().filter((e) ->
-      e.x < 0 or e.y < 0
-    ).length > 1
+    center = @compute_graph_center()
+    center.x < 200 and center.y < 200
 
   update_rel_labels: ->
     @svg.selectAll(".labelpath")
