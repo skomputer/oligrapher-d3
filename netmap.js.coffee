@@ -189,6 +189,20 @@ class Netmap
 
       @shift_map(dx, dy)
 
+  recenter: ->
+    shift = @compute_graph_center()
+    @_data.entities = @_data.entities.map((e) ->
+      e.x += -shift.x
+      e.y += -shift.y
+      e
+    )
+    @_data.texts = @_data.texts.map((t) ->
+      t.x += -shift.x
+      t.y += -shift.y
+      t
+    )
+    @build()
+
   shift_map: (dx, dy) ->
     dx ?= 0
     dy ?= 0
@@ -246,11 +260,19 @@ class Netmap
       t.mouse_y = e.pageY
     )
 
+    @keymap = {}
+
+    $(document).on("keyup", (e) ->
+      t.keymap[e.keyCode] = false
+    )
+
     $(document).on("keydown", (e) ->
-      unless t.clean_mode or t.editing_rel or t.editing_entity or t.editing_text
-        switch e.keyCode
+      t.keymap[e.keyCode] = true
+
+      unless t.clean_mode
+        if e.ctrlKey
           # backspace, delete, "D", or "d"
-          when 8, 46, 68, 100  
+          if t.keymap[8] or t.keymap[46] or t.keymap[68] or t.keymap[100]
             rebuild = false
             selected = $(".selected").length > 0
             for d in d3.selectAll($(".rel.selected")).data()
@@ -265,25 +287,37 @@ class Netmap
             t.build() if rebuild
             $(window).trigger('selection') if selected
             e.preventDefault() if selected
-          # "A" or "a"
-          when 65, 97  
-            if $("#svg:hover").length > 0
-              $(window).trigger('toggle_add_entity_form') 
+          # "N" or "n"
+          if t.keymap[78] or t.keymap[110]
+            if $(t.parent_selector + ":hover").length > 0
+              $(window).trigger('toggle_add_node_form') 
+          # "E" or "e"
+          if t.keymap[69] or t.keymap[101]
+            if $(t.parent_selector + ':hover').length > 0
+              data = d3.selectAll('.entity.selected').data()
+              if data.length > 0
+                $(window).trigger('toggle_add_edge_form', data[0])
+          # "R" or "r"
+          if t.keymap[82] or t.keymap[114]
+            if $(t.parent_selector + ':hover').length > 0
+              data = d3.selectAll('.entity.selected').data()
+              if data.length > 0
+                t.toggle_add_related_entities_form(data[0].id)
           # "T" or "t"
-          when 84, 116
-            if $("#svg:hover").length > 0
+          if t.keymap[84] or t.keymap[116]
+            if $(t.parent_selector + ":hover").length > 0
               $(window).trigger('toggle_add_text_form')
           # "="
-          when 61, 187
+          if t.keymap[61] or t.keymap[187]
             t.zoom_by(1.2)
           # "-"
-          when 173, 189
+          if t.keymap[173] or t.keymap[189]
             t.zoom_by(0.83333333333333)
           # "0"
-          when 48
+          if t.keymap[48]
             t.reset_zoom()
           # "S" or "s"
-          when 83, 115
+          if t.keymap[83] or t.keymap[115]
             t.deselect_all()
             e = $('.entity')[0]
             $(window).trigger('selection', e) if e
@@ -311,11 +345,19 @@ class Netmap
       @_original_data[key] = value.slice(0)
     @_data = data    
     @set_center_entity_id(center_entity_id) if center_entity_id?
+
+    @prepare_entities_and_rels()
+
+    @_data['texts'] = [] unless @_data.texts
+
+  prepare_entities_and_rels: ->
     entity_index = []
-    @rel_groups = {}
     for e, i in @_data.entities
       entity_index[e.id] = i
       e.hide_image = false unless e.hide_image
+      e.scale = 1 unless e.scale
+
+    @rel_groups = {}
     for r in @_data.rels
       if typeof r.x1 == "undefined"
         r.x1 = null
@@ -323,8 +365,10 @@ class Netmap
       r.source = @_data.entities[entity_index[r.entity1_id]]
       r.target = @_data.entities[entity_index[r.entity2_id]]
 
-      min = Math.min(r.entity1_id, r.entity2_id)
-      max = Math.max(r.entity1_id, r.entity2_id)
+      sorted = [r.entity1_id, r.entity2_id].sort()
+      min = sorted[0]
+      max = sorted[1]
+
       if @rel_groups[min]
         if @rel_groups[min][max]
           @rel_groups[min][max].push(r.id)
@@ -335,7 +379,6 @@ class Netmap
         obj[max] = [r.id]
         @rel_groups[min] = obj
 
-    @_data['texts'] = [] unless @_data.texts
 
   data: ->
     @_data
@@ -501,22 +544,22 @@ class Netmap
     
   rel_index: (id) ->
     for r, i in @_data.rels
-      return i if parseInt(r.id) == parseInt(id)
+      return i if r.id.toString() == id.toString()
 
   rel_by_id: (id) ->
     for r, i in @_data.rels
-      return r if parseInt(r.id) == parseInt(id)
+      return r if r.id.toString() == id.toString()
 
   remove_rel: (id) ->
     @_data.rels.splice(@rel_index(id), 1)
 
   entity_index: (id) ->
     for e, i in @_data.entities
-      return i if parseInt(e.id) == parseInt(id)
+      return i if e.id.toString() == id.toString()
 
   entity_by_id: (id) ->
     for e, i in @_data.entities
-      return e if parseInt(e.id) == parseInt(id)
+      return e if e.id.toString() == id.toString()
     return null
 
   remove_entity: (id) ->
@@ -525,12 +568,14 @@ class Netmap
     
   rels_by_entity: (id) ->
     @_data.rels.filter((r) -> 
-      parseInt(r.entity1_id) == parseInt(id) || parseInt(r.entity2_id) == parseInt(id)
+      r.entity1_id.toString() == id.toString() || r.entity2_id.toString() == id.toString()
     )
 
   rel_curve_ratio: (rel) ->
-    min = Math.min(rel.entity1_id, rel.entity2_id)
-    max = Math.max(rel.entity1_id, rel.entity2_id)
+    sorted = [rel.entity1_id, rel.entity2_id].sort()
+    min = sorted[0]
+    max = sorted[1]
+
     rels = @rel_groups[min][max]
     n = rels.length
     if n == 1
@@ -657,6 +702,7 @@ class Netmap
 
   update_positions: ->
     t = this
+
     d3.selectAll(".entity").attr("transform", (d) -> "translate(" + d.x + "," + d.y + ")")
     d3.selectAll(".rel").attr("transform", (d) -> "translate(" + (d.source.x + d.target.x)/2 + "," + (d.source.y + d.target.y)/2 + ")")
     d3.selectAll(".line")
@@ -688,7 +734,8 @@ class Netmap
           y1 = xa * n
 
         spacing = 5
-        node_radius = 25 + spacing
+        node_radius1 = (25 * (if d.source.x >= d.target.x then d.target.scale else d.source.scale)) + spacing
+        node_radius2 = (25 * (if d.source.x < d.target.x then d.target.scale else d.source.scale)) + spacing
 
         # offsets for markers
         dxm1 = xa - x1
@@ -697,10 +744,10 @@ class Netmap
         dxm2 = xb - x1
         dym2 = yb - y1
         rm2 = Math.sqrt(dxm2 * dxm2 + dym2 * dym2)
-        xm1 = node_radius * dxm1 / rm1
-        ym1 = node_radius * dym1 / rm1
-        xm2 = node_radius * dxm2 / rm2
-        ym2 = node_radius * dym2 / rm2
+        xm1 = node_radius1 * dxm1 / rm1
+        ym1 = node_radius1 * dym1 / rm1
+        xm2 = node_radius2 * dxm2 / rm2
+        ym2 = node_radius2 * dym2 / rm2
 
         m = "M" + (xa - xm1) + "," + (ya - ym1)
         q = "Q" + x1 + "," + y1 + "," + (xb - xm2) + "," + (yb - ym2)
@@ -711,16 +758,7 @@ class Netmap
       .attr('x', (d) -> d.x)
       .attr('y', (d) -> d.y)
 
-    # BREAKS INTERNET EXPLORER
-    #
-    # d3.selectAll(".line:not(.highlight)")
-    #   .attr("marker-end", (d) -> 
-    #     if (t.rel_is_directional(d) and d.source.x < d.target.x) then "url(#marker1)" else ""
-    #   )
-    #   .attr("marker-start", (d) -> 
-    #     if (t.rel_is_directional(d) and d.source.x >= d.target.x) then "url(#marker2)" else ""
-    #   )
-
+    @update_rel_is_directionals()
 
   use_force: ->
     for e, i in @_data.entities
@@ -734,7 +772,7 @@ class Netmap
       .distance(@distance)
       .charge(-5000)
       .friction(0.7)
-      .size([@width, @height])
+      .size([0, 0])
       .nodes(@_data.entities, (d) -> return d.id)
       .links(@_data.rels, (d) -> return d.id)
       .start()
@@ -829,6 +867,7 @@ class Netmap
       .attr("class", "line")
       .attr("opacity", 0.6)
       .attr("fill", "none")
+      .attr("stroke", (d) -> if d.color then d.color else '#000')
       .style("stroke-width", (d) ->
         Math.sqrt(d.value) * 1;
       )
@@ -873,7 +912,8 @@ class Netmap
       .data(@_data["rels"], (d) -> return d.id)
     
     @svg.selectAll(".rel").on("click", (d, i) ->
-      t.toggle_selected_rel(d.id)
+      $(this).insertAfter($('.rel').last())
+      t.toggle_selected_rel(d.id) unless t.drag
       $(window).trigger('selection', this)
     )
 
@@ -896,7 +936,7 @@ class Netmap
     rel.classed("hovered", value)
 
   has_image: (d) -> 
-    !d.hide_image and d.image.indexOf("netmap") == -1
+    !d.hide_image and d.image and d.image.indexOf("netmap") == -1
 
   build_entities: ->
     t = this
@@ -918,6 +958,7 @@ class Netmap
         t.drag = true
       )
       .on("dragend", (d, i) -> 
+        t.update_positions() if t.is_ie()
         d.fixed = true
         t.force.alpha(t.alpha) if t.force_enabled
       )
@@ -939,60 +980,95 @@ class Netmap
           t.toggle_hovered_rel(r.id, false)
       )
 
+    # background for add related entities button
+    # unless @clean_mode
+    #   groups.append("rect")
+    #     .attr("class", "add_button_rect")
+    #     .attr("fill", "#fff")
+    #     .attr("opacity", 0.5)
+    #     .attr("width", 18)
+    #     .attr("height", 18)
+    #     .attr("x", (d) -> 15 * d.scale)
+    #     .attr("y", (d) -> -28 * d.scale)
+    #     .attr("rx", 5)
+    #     .attr("ry", 5)    
+
+    # add related entities button and background squares
+    # unless @clean_mode
+    #   buttons = groups.append("a")
+    #     .attr("class", "add_button")
+    #   buttons.append("text")
+    #     .attr("dx", (d) -> 20 * d.scale)
+    #     .attr("dy", (d) -> -15 * d.scale)
+    #     .text("+")
+    #     .on("click", (d) ->
+    #       t.toggle_add_related_entities_form(d.id)
+    #     )      
+
+    entities.exit().remove()
+
+    @build_entity_images()
+    @build_entity_labels()
+
+    @svg.selectAll(".entity").on("click", (d, i) ->
+      $('#zoom').append(this)      
+      t.toggle_selected_entity(d.id) unless t.drag
+      $(window).trigger('selection', this) unless t.drag
+    )
+
+    @svg.selectAll(".entity a").on("click", (d, i) ->
+      d3.event.stopPropagation()
+    )
+
+  build_entity_images: ->
+    t = this
+    groups = @svg.selectAll('g.entity')
+
+    # remove existing links, texts, rects
+    $('.entity circle.image-bg').remove()
+    $('.entity .image-clippath').remove()
+    $('.entity image.image').remove()
+
     # circle for background and highlighting
     groups.append("circle")
-      .attr("class", "image-bg")
+      .attr("class", (d) -> if d.image then "image-bg" else "image-bg custom")
       .attr("opacity", 1)
-      .attr("r", 28)
-      .attr("x", -29)
-      .attr("y", -29)
+      .attr("r", (d) -> 25 * d.scale)
+      .attr("x", (d) -> -29 * d.scale)
+      .attr("y", (d) -> -29 * d.scale)
       .attr("stroke", "white")
       .attr("stroke-width", 0)
 
     # circle for clipping image
     groups.append("clipPath")
       .attr("id", (d) -> "image-clip-" + d.id)
+      .attr("class", "image-clippath")
       .append("circle")
       .attr("class", "image-clip")
       .attr("opacity", 1)
-      .attr("r", 25)
-      .attr("x", -29)
-      .attr("y", -29)
-
-    unless @clean_mode
-      groups.append("rect")
-        .attr("class", "add_button_rect")
-        .attr("fill", "#fff")
-        .attr("opacity", 0.5)
-        .attr("width", 18)
-        .attr("height", 18)
-        .attr("x", 15)
-        .attr("y", -28)
-        .attr("rx", 5)
-        .attr("ry", 5)    
+      .attr("r", (d) -> 25 * d.scale)
+      .attr("x", (d) -> -29 * d.scale)
+      .attr("y", (d) -> -29 * d.scale)
 
     # profile image or default silhouette
-    groups.append("image")
+    groups.filter((d) -> d.image)
+      .append("image")
       .attr("class", "image")
       .attr("xlink:href", (d) -> t.image_for_entity(d))
-      .attr("x", (d) -> if t.has_image(d) then -40 else -25)
-      .attr("y", (d) -> if t.has_image(d) then -40 else -25)
-      .attr("width", (d) -> if t.has_image(d) then 80 else 50)
-      .attr("height", (d) -> if t.has_image(d) then 80 else 50)
-      .attr("clip-path", (d) -> "url(#image-clip-" + d.id + ")" )
+      .attr("x", (d) -> if t.has_image(d) then -40 * d.scale else -25 * d.scale)
+      .attr("y", (d) -> if t.has_image(d) then -40 * d.scale else -25 * d.scale)
+      .attr("width", (d) -> if t.has_image(d) then (80 * d.scale) else (50 * d.scale))
+      .attr("height", (d) -> if t.has_image(d) then (80 * d.scale) else (50 * d.scale))
+      .attr("clip-path", (d) -> "url(#image-clip-" + d.id + ")" )    
 
-    # add related entities button and background squares
-    unless @clean_mode
-      buttons = groups.append("a")
-        .attr("class", "add_button")
-      buttons.append("text")
-        .attr("dx", 20)
-        .attr("dy", -15)
-        .text("+")
-        .on("click", (d) ->
-          t.toggle_add_related_entities_form(d.id)
-        )      
-          
+  build_entity_labels: ->
+    t = this
+    groups = @svg.selectAll('g.entity')
+
+    # remove existing links, texts, rects
+    $('.entity a.entity_link').remove()
+    $('.entity rect.text_rect').remove()
+
     # anchor tags around entity name
     links = groups.append("a")
       .attr("class", "entity_link")
@@ -1002,15 +1078,17 @@ class Netmap
     links.append("text")
       .attr("class", "entitylabel1")
       .attr("dx", 0)
-      .attr("dy", 38) # (d) -> if t.has_image(d) then 40 else 25)
+      .attr("dy", (d) -> 42 * d.scale) # (d) -> if t.has_image(d) then 40 else 25)
       .attr("text-anchor", "middle")
+      .attr("font-size", (d) -> 12 * d.scale)
       .text((d) -> t.split_name(d.name)[0])
 
     links.append("text")
       .attr("class", "entitylabel2")
       .attr("dx", 0)
-      .attr("dy", 55) # (d) -> if t.has_image(d) then 55 else 40)
+      .attr("dy", (d) -> 59 * d.scale) # (d) -> if t.has_image(d) then 55 else 40)
       .attr("text-anchor", "middle")
+      .attr("font-size", (d) -> 12 * d.scale)
       .text((d) -> t.split_name(d.name)[1])
 
     # one or two rectangles behind the entity name
@@ -1025,10 +1103,10 @@ class Netmap
         -$(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width/2 - 3
       )
       .attr("y", (d) ->
-        image_offset = 24
+        image_offset = 28
         text_offset = $(this.parentNode).find(".entity_link text")[0].getBBox().height
         extra_offset = 5 # if t.has_image(d) then 2 else -5
-        image_offset + text_offset + extra_offset
+        (image_offset + extra_offset) * d.scale + text_offset
       )
       .attr("width", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width + 6)
       .attr("height", (d) -> $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().height + 4)
@@ -1043,24 +1121,12 @@ class Netmap
         -$(this.parentNode).find(".entity_link text")[0].getBBox().width/2 - 3
       )
       .attr("y", (d) ->
-        image_offset = 24
+        image_offset = 28
         extra_offset = 1 # if t.has_image(d) then 1 else -6
-        image_offset + extra_offset
+        (image_offset + extra_offset) * d.scale
       )
       .attr("width", (d) -> $(this.parentNode).find(".entity_link text")[0].getBBox().width + 6)
-      .attr("height", (d) -> $(this.parentNode).find(".entity_link text")[0].getBBox().height + 4)
-
-    entities.exit().remove()
-
-    @svg.selectAll(".entity").on("click", (d, i) ->
-      $('#zoom').append(this)      
-      t.toggle_selected_entity(d.id) unless t.drag
-      $(window).trigger('selection', this) unless t.drag
-    )
-
-    @svg.selectAll(".entity a").on("click", (d, i) ->
-      d3.event.stopPropagation()
-    )
+      .attr("height", (d) -> $(this.parentNode).find(".entity_link text")[0].getBBox().height + 4)    
 
   last_entity_id: ->
     elems = document.querySelectorAll('#zoom g.entity')
@@ -1108,6 +1174,8 @@ class Netmap
     [parts.slice(0, half).join(" "), parts.slice(half).join(" ")]
 
   rel_is_directional: (r) ->
+    return true if r.is_directional == true
+    return false if r.is_directional == false
     r.category_ids.map((cat_id) ->
       [1, 2, 3, 5, 10].indexOf(cat_id)
     ).indexOf(-1) == -1
@@ -1128,6 +1196,21 @@ class Netmap
         ""
       )
 
+  update_rel_is_directionals: ->
+    t = this
+
+    # SAVES IE FROM BREAKING?
+    if @is_ie()
+      d3.selectAll(".line:not(.highlight)").each(-> this.parentNode.insertBefore(this, this))
+
+    d3.selectAll(".line:not(.highlight)")
+      .attr("marker-end", (d) -> 
+        if (t.rel_is_directional(d) and d.source.x < d.target.x) then "url(#marker1)" else ""
+      )
+      .attr("marker-start", (d) -> 
+        if (t.rel_is_directional(d) and d.source.x >= d.target.x) then "url(#marker2)" else ""
+      )
+
   set_rel_label: (id, label) ->
     rel = @rel_by_id(id)
 
@@ -1143,6 +1226,15 @@ class Netmap
     if rel
       rel.is_current = value
       @update_rel_is_currents()
+    else
+      false
+
+  set_rel_is_directional: (id, value) ->
+    rel = @rel_by_id(id)
+
+    if rel
+      rel.is_directional = value
+      @update_rel_is_directionals()
     else
       false
 
@@ -1163,6 +1255,12 @@ class Netmap
   set_selected_rel_is_current: (value) ->
     @set_rel_is_current(@selected_rel_id(), value)
 
+  selected_rel_is_directional: ->
+    @rel_is_directional(@rel_by_id(@selected_rel_id()))
+
+  set_selected_rel_is_directional: (value) ->
+    @set_rel_is_directional(@selected_rel_id(), value)
+
   update_entity_labels: ->
     t = this
     @svg.selectAll(".entitylabel1")
@@ -1174,17 +1272,17 @@ class Netmap
     t = this
     @svg.selectAll('.image')
       .attr("xlink:href", (d) -> t.image_for_entity(d))
-      .attr("x", (d) -> if t.has_image(d) then -40 else -25)
-      .attr("y", (d) -> if t.has_image(d) then -40 else -25)
-      .attr("width", (d) -> if t.has_image(d) then 80 else 50)
-      .attr("height", (d) -> if t.has_image(d) then 80 else 50)
+      .attr("x", (d) -> if t.has_image(d) then -40 * d.scale else -25 * d.scale)
+      .attr("y", (d) -> if t.has_image(d) then -40 * d.scale else -25 * d.scale)
+      .attr("width", (d) -> if t.has_image(d) then 80 * d.scale else 50 * d.scale)
+      .attr("height", (d) -> if t.has_image(d) then 80 * d.scale else 50 * d.scale)
 
   set_entity_label: (id, label) ->
     entity = @entity_by_id(id)
 
     if entity?
       entity.name = label
-      @update_entity_labels()
+      @build_entity_labels()
     else
       false
 
@@ -1194,6 +1292,16 @@ class Netmap
     if entity
       entity.hide_image = value
       @update_entity_images()
+    else
+      false
+
+  set_entity_scale: (id, value) ->
+    entity = @entity_by_id(id)
+
+    if entity
+      entity.scale = value
+      @build()
+      d3.selectAll(".entity image").each(-> this.parentNode.insertBefore(this, this))
     else
       false
 
@@ -1208,11 +1316,17 @@ class Netmap
   get_selected_entity_label: ->
     @get_selected_entity().name
 
+  get_selected_entity_scale: ->
+    @get_selected_entity().scale
+
   set_selected_entity_label: (label) ->
     @set_entity_label(@selected_entity_id(), label)
 
   set_selected_entity_hide_image: (value) ->
     @set_entity_hide_image(@selected_entity_id(), value)
+
+  set_selected_entity_scale: (value) ->
+    @set_entity_scale(@selected_entity_id(), value)
 
   selected_text_id: ->
     data = d3.selectAll($(".text.selected")).data()
@@ -1315,13 +1429,74 @@ class Netmap
 
   image_for_entity: (e) ->
     if e.hide_image
-      if e.primary_ext == 'Person'
+      if e.type == 'Person'
         'http://littlesis.s3.amazonaws.com/images/system/netmap-person.png'
-      else
+      else if e.type == 'Org'
         'http://littlesis.s3.amazonaws.com/images/system/netmap-org.png'
+      else
+        null
     else
       e.image
 
+  next_custom_node_id: ->
+    ids = @data().entities.map((e) -> e.id.toString()).filter((id) -> id.indexOf("x") == 0)
+    return "x1" if ids.length == 0
+    nums = ids.map((id) -> parseInt(id.slice(1)))
+    max = Math.max.apply(null, nums)
+    "x" + (max + 1)
+
+  next_custom_rel_id: ->
+    ids = @data().rels.map((r) -> r.id.toString()).filter((id) -> id.indexOf("x") == 0)
+    return "x1" if ids.length == 0
+    nums = ids.map((id) -> parseInt(id.slice(1)))
+    max = Math.max.apply(null, nums)
+    "x" + (max + 1)
+
+  add_node: (name, x, y, type = null, url = null) ->
+    @data().entities.push({ 
+      id: @next_custom_node_id()
+      name: name,
+      x: x,
+      y: y,
+      type: type,
+      url: url,
+      image: null,
+      hide_image: true,
+      custom: true
+    })
+    @build()
+
+  add_edge: (entity1_id, entity2_id, label, category_id = null, is_current = 1, is_directional = false, url = null) ->
+    if entity1_id.toString().match(/^\d+$/)
+      entity1_id = parseInt(entity1_id)
+
+    if entity2_id.toString().match(/^\d+$/)
+      entity2_id = parseInt(entity2_id)
+
+    category_id = null unless category_id
+
+    @data().rels.push({
+      id: @next_custom_rel_id(),
+      entity1_id: entity1_id,
+      entity2_id, entity2_id,
+      label: label,
+      category_id: category_id,
+      category_ids: (if category_id then [category_id] else []),
+      is_current: parseInt(is_current),
+      end_date: null,
+      value: 1,
+      url: url,
+      custom: true,
+      is_directional: is_directional
+    })
+    @prepare_entities_and_rels()
+    @build()
+
+  entity_options_for_select: ->
+    @data().entities.map((e) -> [e.id, e.name])
+
+  is_ie: ->
+    window.navigator.userAgent.indexOf("MSIE") != -1 or window.navigator.userAgent.indexOf("Trident") != -1
 
 if typeof module != "undefined" && module.exports
   # on a server
