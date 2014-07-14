@@ -126,7 +126,7 @@ class Netmap
     marker1 = @svg.append("marker")
       .attr("id", "marker1")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 10)
+      .attr("refX", 8)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -137,7 +137,7 @@ class Netmap
     marker2 = @svg.append("marker")
       .attr("id", "marker2")
       .attr("viewBox", "-10 -5 10 10")
-      .attr("refX", -10)
+      .attr("refX", -8)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -364,6 +364,7 @@ class Netmap
         r.y1 = null
       r.source = @_data.entities[entity_index[r.entity1_id]]
       r.target = @_data.entities[entity_index[r.entity2_id]]
+      r.scale = 1 unless r.scale
 
       sorted = [r.entity1_id, r.entity2_id].sort()
       min = sorted[0]
@@ -845,57 +846,9 @@ class Netmap
       .attr("id", (d) -> "rel-" + d.id)
       .call(rel_drag)
 
-    # transparent thick path for dragging
-    groups.append("path")
-      .attr("id", (d) -> "path-bg-" + d.id)
-      .attr("class", "line bg")
-      .attr("opacity", 0)
-      .attr("stroke", "white")
-      .attr("stroke-width", 20)
-
-    # yellow path for highlighting
-    groups.append("path")
-      .attr("id", (d) -> "path-highlight-" + d.id)
-      .attr("class", "line highlight")
-      .attr("opacity", 0.6)
-      .attr("fill", "none")
-      .style("stroke-width", 4)
-
-    # main path
-    groups.append("path")
-      .attr("id", (d) -> "path-" + d.id)
-      .attr("class", "line")
-      .attr("opacity", 0.6)
-      .attr("fill", "none")
-      .attr("stroke", (d) -> if d.color then d.color else '#000')
-      .style("stroke-width", (d) ->
-        Math.sqrt(d.value) * 1;
-      )
-      # BREAKS INTERNET EXPLORER
-      # .attr("marker-end", (d) -> 
-      #   if d.source.x < d.target.x then "url(#marker)" else ""
-      # )
-      # .attr("marker-start", (d) -> 
-      #   if d.source.x >= d.target.x then "url(#marker)" else ""
-      # )
-
-    # anchor tags around category labels
-    groups.append("a")
-      .attr("xlink:href", (d) -> d.url)
-      .append("text")
-      .attr("class", "label")
-      .attr("dy", -6)
-      .attr("text-anchor", "middle")
-      .append("textPath")
-      .attr("class", "labelpath")
-      .attr("startOffset", "50%")
-      .attr("xlink:href", (d) -> 
-        "#path-" + d.id
-      )
-      .text((d) -> d.label)
-
     rels.exit().remove()
 
+    @build_rel_paths()
     @update_rel_is_currents()
 
     # hide hidden rels
@@ -916,6 +869,57 @@ class Netmap
       t.toggle_selected_rel(d.id) unless t.drag
       $(window).trigger('selection', this)
     )
+
+  build_rel_paths: ->
+    t = this
+    groups = @svg.selectAll('g.rel')
+
+    # remove existing paths, links, etc
+    $('.rel path.line').remove()
+    $('.rel a').remove()
+    $('.rel text.label').remove()
+    $('.rel .labelpath').remove()
+
+    # transparent thick path for dragging
+    groups.append("path")
+      .attr("id", (d) -> "path-bg-" + d.id)
+      .attr("class", "line bg")
+      .attr("opacity", 0)
+      .attr("stroke", "white")
+      .attr("stroke-width", 20)
+
+    # yellow path for highlighting
+    groups.append("path")
+      .attr("id", (d) -> "path-highlight-" + d.id)
+      .attr("class", "line highlight")
+      .attr("opacity", 0.6)
+      .attr("fill", "none")
+      .style("stroke-width", (d) -> 4 * d.scale)
+
+    # main path
+    groups.append("path")
+      .attr("id", (d) -> "path-" + d.id)
+      .attr("class", "line")
+      .attr("opacity", 0.6)
+      .attr("fill", "none")
+      .attr("stroke", (d) -> if d.color then d.color else '#000')
+      .style("stroke-width", (d) -> d.scale)
+
+    # anchor tags around category labels
+    groups.append("a")
+      .attr("xlink:href", (d) -> d.url)
+      .append("text")
+      .attr("class", "label")
+      .attr("dy", (d) -> -6 * Math.sqrt(d.scale))
+      .attr("text-anchor", "middle")
+      .append("textPath")
+      .attr("class", "labelpath")
+      .attr("startOffset", "50%")
+      .attr("xlink:href", (d) -> 
+        "#path-" + d.id
+      )
+      .attr("font-size", (d) -> 9 * Math.sqrt(d.scale))
+      .text((d) -> d.label)
 
   toggle_selected_rel: (id, value = null) ->
     t = this
@@ -1037,7 +1041,8 @@ class Netmap
       .attr("x", (d) -> -29 * d.scale)
       .attr("y", (d) -> -29 * d.scale)
       .attr("stroke", "white")
-      .attr("stroke-width", 0)
+      .attr("stroke-width", (d) -> 7 * d.scale)
+      .attr("stroke-opacity", 0)
 
     # circle for clipping image
     groups.append("clipPath")
@@ -1192,8 +1197,7 @@ class Netmap
   update_rel_is_currents: ->
     d3.selectAll(".line:not(.highlight):not(.bg)")
       .style("stroke-dasharray", (d) ->
-        return "5,2" if (d.is_current == 0 || d.is_current == null || d.end_date)
-        ""
+        return if (d.is_current == 0 || d.is_current == null || d.end_date) then "5,2" else ""
       )
 
   update_rel_is_directionals: ->
@@ -1238,6 +1242,16 @@ class Netmap
     else
       false
 
+  set_rel_scale: (id, value) ->
+    rel = @rel_by_id(id)
+
+    if rel
+      rel.scale = value
+      @build_rels()
+      @update_positions()
+    else
+      false
+
   selected_rel_id: ->
     data = d3.selectAll($(".rel.selected")).data()
     return false if data.length != 1
@@ -1260,6 +1274,12 @@ class Netmap
 
   set_selected_rel_is_directional: (value) ->
     @set_rel_is_directional(@selected_rel_id(), value)
+
+  get_selected_rel_scale: ->
+    @rel_by_id(@selected_rel_id()).scale
+
+  set_selected_rel_scale: (value) ->
+    @set_rel_scale(@selected_rel_id(), value)
 
   update_entity_labels: ->
     t = this

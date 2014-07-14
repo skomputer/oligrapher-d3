@@ -157,8 +157,8 @@
         zoom.append('line').attr('x1', -8).attr('y1', 0).attr('x2', 8).attr('y2', 0).attr('stroke', '#ccc');
         zoom.append('line').attr('x1', 0).attr('y1', -8).attr('x2', 0).attr('y2', 8).attr('stroke', '#ccc');
       }
-      marker1 = this.svg.append("marker").attr("id", "marker1").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5");
-      marker2 = this.svg.append("marker").attr("id", "marker2").attr("viewBox", "-10 -5 10 10").attr("refX", -10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L-10,0L0,5");
+      marker1 = this.svg.append("marker").attr("id", "marker1").attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5");
+      marker2 = this.svg.append("marker").attr("id", "marker2").attr("viewBox", "-10 -5 10 10").attr("refX", -8).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L-10,0L0,5");
       defs = this.svg.append("defs");
       this.zoom = d3.behavior.zoom();
       this.zoom.scaleExtent([this.min_zoom, this.max_zoom]);
@@ -487,6 +487,9 @@
         }
         r.source = this._data.entities[entity_index[r.entity1_id]];
         r.target = this._data.entities[entity_index[r.entity2_id]];
+        if (!r.scale) {
+          r.scale = 1;
+        }
         sorted = [r.entity1_id, r.entity2_id].sort();
         min = sorted[0];
         max = sorted[1];
@@ -1275,31 +1278,8 @@
       groups = rels.enter().append("g").attr("class", "rel").attr("id", function(d) {
         return "rel-" + d.id;
       }).call(rel_drag);
-      groups.append("path").attr("id", function(d) {
-        return "path-bg-" + d.id;
-      }).attr("class", "line bg").attr("opacity", 0).attr("stroke", "white").attr("stroke-width", 20);
-      groups.append("path").attr("id", function(d) {
-        return "path-highlight-" + d.id;
-      }).attr("class", "line highlight").attr("opacity", 0.6).attr("fill", "none").style("stroke-width", 4);
-      groups.append("path").attr("id", function(d) {
-        return "path-" + d.id;
-      }).attr("class", "line").attr("opacity", 0.6).attr("fill", "none").attr("stroke", function(d) {
-        if (d.color) {
-          return d.color;
-        } else {
-          return '#000';
-        }
-      }).style("stroke-width", function(d) {
-        return Math.sqrt(d.value) * 1;
-      });
-      groups.append("a").attr("xlink:href", function(d) {
-        return d.url;
-      }).append("text").attr("class", "label").attr("dy", -6).attr("text-anchor", "middle").append("textPath").attr("class", "labelpath").attr("startOffset", "50%").attr("xlink:href", function(d) {
-        return "#path-" + d.id;
-      }).text(function(d) {
-        return d.label;
-      });
       rels.exit().remove();
+      this.build_rel_paths();
       this.update_rel_is_currents();
       rels.style("display", function(d) {
         if (d.hidden === true) {
@@ -1326,6 +1306,47 @@
           t.toggle_selected_rel(d.id);
         }
         return $(window).trigger('selection', this);
+      });
+    };
+
+    Netmap.prototype.build_rel_paths = function() {
+      var groups, t;
+
+      t = this;
+      groups = this.svg.selectAll('g.rel');
+      $('.rel path.line').remove();
+      $('.rel a').remove();
+      $('.rel text.label').remove();
+      $('.rel .labelpath').remove();
+      groups.append("path").attr("id", function(d) {
+        return "path-bg-" + d.id;
+      }).attr("class", "line bg").attr("opacity", 0).attr("stroke", "white").attr("stroke-width", 20);
+      groups.append("path").attr("id", function(d) {
+        return "path-highlight-" + d.id;
+      }).attr("class", "line highlight").attr("opacity", 0.6).attr("fill", "none").style("stroke-width", function(d) {
+        return 4 * d.scale;
+      });
+      groups.append("path").attr("id", function(d) {
+        return "path-" + d.id;
+      }).attr("class", "line").attr("opacity", 0.6).attr("fill", "none").attr("stroke", function(d) {
+        if (d.color) {
+          return d.color;
+        } else {
+          return '#000';
+        }
+      }).style("stroke-width", function(d) {
+        return d.scale;
+      });
+      return groups.append("a").attr("xlink:href", function(d) {
+        return d.url;
+      }).append("text").attr("class", "label").attr("dy", function(d) {
+        return -6 * Math.sqrt(d.scale);
+      }).attr("text-anchor", "middle").append("textPath").attr("class", "labelpath").attr("startOffset", "50%").attr("xlink:href", function(d) {
+        return "#path-" + d.id;
+      }).attr("font-size", function(d) {
+        return 9 * Math.sqrt(d.scale);
+      }).text(function(d) {
+        return d.label;
       });
     };
 
@@ -1455,7 +1476,9 @@
         return -29 * d.scale;
       }).attr("y", function(d) {
         return -29 * d.scale;
-      }).attr("stroke", "white").attr("stroke-width", 0);
+      }).attr("stroke", "white").attr("stroke-width", function(d) {
+        return 7 * d.scale;
+      }).attr("stroke-opacity", 0);
       groups.append("clipPath").attr("id", function(d) {
         return "image-clip-" + d.id;
       }).attr("class", "image-clippath").append("circle").attr("class", "image-clip").attr("opacity", 1).attr("r", function(d) {
@@ -1644,8 +1667,9 @@
       return d3.selectAll(".line:not(.highlight):not(.bg)").style("stroke-dasharray", function(d) {
         if (d.is_current === 0 || d.is_current === null || d.end_date) {
           return "5,2";
+        } else {
+          return "";
         }
-        return "";
       });
     };
 
@@ -1709,6 +1733,19 @@
       }
     };
 
+    Netmap.prototype.set_rel_scale = function(id, value) {
+      var rel;
+
+      rel = this.rel_by_id(id);
+      if (rel) {
+        rel.scale = value;
+        this.build_rels();
+        return this.update_positions();
+      } else {
+        return false;
+      }
+    };
+
     Netmap.prototype.selected_rel_id = function() {
       var data;
 
@@ -1741,6 +1778,14 @@
 
     Netmap.prototype.set_selected_rel_is_directional = function(value) {
       return this.set_rel_is_directional(this.selected_rel_id(), value);
+    };
+
+    Netmap.prototype.get_selected_rel_scale = function() {
+      return this.rel_by_id(this.selected_rel_id()).scale;
+    };
+
+    Netmap.prototype.set_selected_rel_scale = function(value) {
+      return this.set_rel_scale(this.selected_rel_id(), value);
     };
 
     Netmap.prototype.update_entity_labels = function() {
