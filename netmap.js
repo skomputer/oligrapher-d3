@@ -522,6 +522,12 @@
       return this._data.entities;
     };
 
+    Netmap.prototype.littlesis_entity_ids = function() {
+      return this.entity_ids().filter(function(id) {
+        return id.toString().indexOf('x') === -1;
+      });
+    };
+
     Netmap.prototype.rel_ids = function() {
       return this._data.rels.map(function(r) {
         return r.id;
@@ -530,6 +536,12 @@
 
     Netmap.prototype.rels = function() {
       return this._data.rels;
+    };
+
+    Netmap.prototype.littlesis_rel_ids = function() {
+      return this.rel_ids().filter(function(id) {
+        return id.toString().indexOf('x') === -1;
+      });
     };
 
     Netmap.prototype.set_user_id = function(user_id) {
@@ -650,7 +662,7 @@
         return false;
       }
       t = this;
-      return this.api.get_add_entity_data(id, this.entity_ids(), function(data) {
+      return this.api.get_add_entity_data(id, this.littlesis_entity_ids(), function(data) {
         var new_data;
 
         data.entities = data.entities.map(function(e) {
@@ -685,7 +697,7 @@
         return false;
       }
       t = this;
-      this.api.get_add_related_entities_data(entity_id, num, this.entity_ids(), this.rel_ids(), include_cats, function(data) {
+      this.api.get_add_related_entities_data(entity_id, num, this.littlesis_entity_ids(), this.littlesis_rel_ids(), include_cats, function(data) {
         data.entities = t.circle_entities_around_point(data.entities, [entity.x, entity.y]);
         t.set_data({
           "entities": t.data().entities.concat(data.entities),
@@ -2113,7 +2125,8 @@
         url: url,
         image: null,
         hide_image: true,
-        custom: true
+        custom: true,
+        scale: 1
       });
       return this.build();
     };

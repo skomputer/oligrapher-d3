@@ -390,11 +390,17 @@ class Netmap
   entities: ->
     @_data.entities
 
+  littlesis_entity_ids: ->
+    @entity_ids().filter((id) -> id.toString().indexOf('x') == -1)
+
   rel_ids: ->
     @_data.rels.map((r) -> r.id)
 
   rels: ->
     @_data.rels
+
+  littlesis_rel_ids: ->
+    @rel_ids().filter((id) -> id.toString().indexOf('x') == -1)    
 
   set_user_id: (user_id) ->
     @user_id = user_id
@@ -452,7 +458,7 @@ class Netmap
   add_entity: (id, position = null) ->
     return false if @entity_ids().indexOf(parseInt(id)) > -1
     t = this
-    @api.get_add_entity_data(id, @entity_ids(), (data) ->
+    @api.get_add_entity_data(id, @littlesis_entity_ids(), (data) ->
       data.entities = data.entities.map((e) ->
         e.x = if position? then position[0] - t.get_translate()[0] else t.width/2 + 200 * (0.5 - Math.random())
         e.y = if position? then position[1] - t.get_translate()[1] else t.height/2 + 200 * (0.5 - Math.random())
@@ -472,7 +478,7 @@ class Netmap
     entity = @entity_by_id(entity_id)
     return false unless entity?
     t = this
-    @api.get_add_related_entities_data(entity_id, num, @entity_ids(), @rel_ids(), include_cats, (data) ->
+    @api.get_add_related_entities_data(entity_id, num, @littlesis_entity_ids(), @littlesis_rel_ids(), include_cats, (data) ->
       data.entities = t.circle_entities_around_point(data.entities, [entity.x, entity.y])
       t.set_data({
         "entities": t.data().entities.concat(data.entities),
@@ -1482,7 +1488,8 @@ class Netmap
       url: url,
       image: null,
       hide_image: true,
-      custom: true
+      custom: true,
+      scale: 1
     })
     @build()
 
