@@ -2019,7 +2019,7 @@
       ids = this.data().texts.map(function(t) {
         return t.id;
       });
-      return Math.max(ids) + 1;
+      return Math.max.apply(null, ids) + 1;
     };
 
     Netmap.prototype.toggle_selected_text = function(id) {

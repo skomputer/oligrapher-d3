@@ -1434,7 +1434,7 @@ class Netmap
 
   next_text_id: ->
     ids = @data().texts.map((t) -> t.id)
-    Math.max(ids) + 1
+    Math.max.apply(null, ids) + 1
 
   toggle_selected_text: (id) ->
     g = $("#text-" + id)
