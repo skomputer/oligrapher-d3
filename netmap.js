@@ -457,8 +457,9 @@
       }
       this.prepare_entities_and_rels();
       if (!this._data.texts) {
-        return this._data['texts'] = [];
+        this._data['texts'] = [];
       }
+      return this.ensure_text_ids();
     };
 
     Netmap.prototype.prepare_entities_and_rels = function() {
@@ -2019,7 +2020,21 @@
       ids = this.data().texts.map(function(t) {
         return t.id;
       });
+      if (ids.length === 0) {
+        return 1;
+      }
       return Math.max.apply(null, ids) + 1;
+    };
+
+    Netmap.prototype.ensure_text_ids = function() {
+      var t;
+
+      t = this;
+      return this.data().texts.forEach(function(text) {
+        if (text.id === null) {
+          return text.id = t.next_text_id();
+        }
+      });
     };
 
     Netmap.prototype.toggle_selected_text = function(id) {

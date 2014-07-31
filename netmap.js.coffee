@@ -349,6 +349,7 @@ class Netmap
     @prepare_entities_and_rels()
 
     @_data['texts'] = [] unless @_data.texts
+    @ensure_text_ids()
 
   prepare_entities_and_rels: ->
     entity_index = []
@@ -1434,7 +1435,14 @@ class Netmap
 
   next_text_id: ->
     ids = @data().texts.map((t) -> t.id)
+    return 1 if ids.length == 0
     Math.max.apply(null, ids) + 1
+
+  ensure_text_ids: ->
+    t = this
+    @data().texts.forEach((text) ->
+      text.id = t.next_text_id() if text.id == null
+    )
 
   toggle_selected_text: (id) ->
     g = $("#text-" + id)
