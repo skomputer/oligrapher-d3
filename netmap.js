@@ -339,7 +339,7 @@
 
         t.keymap[e.keyCode] = true;
         if (!t.clean_mode) {
-          if (e.ctrlKey) {
+          if (e.ctrlKey || e.altKey) {
             if (t.keymap[8] || t.keymap[46] || t.keymap[68] || t.keymap[100]) {
               rebuild = false;
               selected = $(".selected").length > 0;

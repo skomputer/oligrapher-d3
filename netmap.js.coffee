@@ -270,7 +270,7 @@ class Netmap
       t.keymap[e.keyCode] = true
 
       unless t.clean_mode
-        if e.ctrlKey
+        if e.ctrlKey or e.altKey
           # backspace, delete, "D", or "d"
           if t.keymap[8] or t.keymap[46] or t.keymap[68] or t.keymap[100]
             rebuild = false
