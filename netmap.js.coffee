@@ -81,7 +81,7 @@ class Netmap
   constructor: (width, height, parent_selector, key, clean_mode = true) ->
     @width = width
     @height = height
-    @min_zoom = 0.5
+    @min_zoom = 0.2
     @max_zoom = 2
     @parent_selector = parent_selector
     @clean_mode = clean_mode
@@ -213,8 +213,8 @@ class Netmap
     centered = @centered_coordinates()
     svg_size = @svg_size()
     new_scale = @zoom.scale() * scale
-    new_scale = 0.5 if new_scale < 0.5
-    new_scale = 2 if new_scale > 2
+    new_scale = @min_zoom if new_scale < @min_zoom
+    new_scale = @max_zoom if new_scale > @max_zoom
     x_diff = (if centered then 0 else (new_scale - @zoom.scale()) * svg_size.x)
     y_diff = (if centered then 0 else (new_scale - @zoom.scale()) * svg_size.y)
     @zoom.scale(new_scale)

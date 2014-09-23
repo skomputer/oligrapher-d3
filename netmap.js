@@ -133,7 +133,7 @@
       }
       this.width = width;
       this.height = height;
-      this.min_zoom = 0.5;
+      this.min_zoom = 0.2;
       this.max_zoom = 2;
       this.parent_selector = parent_selector;
       this.clean_mode = clean_mode;
@@ -271,11 +271,11 @@
       centered = this.centered_coordinates();
       svg_size = this.svg_size();
       new_scale = this.zoom.scale() * scale;
-      if (new_scale < 0.5) {
-        new_scale = 0.5;
+      if (new_scale < this.min_zoom) {
+        new_scale = this.min_zoom;
       }
-      if (new_scale > 2) {
-        new_scale = 2;
+      if (new_scale > this.max_zoom) {
+        new_scale = this.max_zoom;
       }
       x_diff = (centered ? 0 : (new_scale - this.zoom.scale()) * svg_size.x);
       y_diff = (centered ? 0 : (new_scale - this.zoom.scale()) * svg_size.y);
