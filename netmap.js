@@ -133,33 +133,43 @@
       }
       this.width = width;
       this.height = height;
-      this.min_zoom = 0.2;
+      this.min_zoom = 0.1;
       this.max_zoom = 2;
       this.parent_selector = parent_selector;
       this.clean_mode = clean_mode;
+      this.zoom_enabled = true;
       this.init_svg();
       this.force_enabled = false;
       this.entity_background_opacity = 0.6;
       this.entity_background_color = "#fff";
       this.entity_background_corner_radius = 5;
-      this.distance = 200;
+      this.distance = 600;
       this.api = new LittlesisApi(key);
       this.init_callbacks();
       this.current_only = false;
+      this.default_rels = false;
+      this.straight_rels = false;
+      this.current_rels = false;
+      this.hide_images = false;
+      this.mode = 'default';
+      this.gravity = 0.3;
+      this.charge = -5000;
+      this.entity_links = true;
+      this.bg_color = null;
     }
 
     Netmap.prototype.init_svg = function() {
-      var defs, marker1, marker2, t, zoom, zoom_func;
+      var marker1, marker2, t, zoom, zoom_func;
 
       this.svg = d3.select(this.parent_selector).append("svg").attr("version", "1.1").attr("xmlns", "http://www.w3.org/2000/svg").attr("xmlns:xmlns:xlink", "http://www.w3.org/1999/xlink").attr("id", "svg").attr("width", this.width != null ? this.width : "100%").attr("height", this.height != null ? this.height : "100%");
-      zoom = this.svg.append('g').attr("id", "zoom").attr("fill", "#ffe");
+      zoom = this.svg.append('g').attr("id", "zoom");
       if (!this.clean_mode) {
         zoom.append('line').attr('x1', -8).attr('y1', 0).attr('x2', 8).attr('y2', 0).attr('stroke', '#ccc');
         zoom.append('line').attr('x1', 0).attr('y1', -8).attr('x2', 0).attr('y2', 8).attr('stroke', '#ccc');
       }
       marker1 = this.svg.append("marker").attr("id", "marker1").attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5");
       marker2 = this.svg.append("marker").attr("id", "marker2").attr("viewBox", "-10 -5 10 10").attr("refX", -8).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L-10,0L0,5");
-      defs = this.svg.append("defs");
+      this.init_gradients();
       this.zoom = d3.behavior.zoom();
       this.zoom.scaleExtent([this.min_zoom, this.max_zoom]);
       t = this;
@@ -171,7 +181,31 @@
         scale = d3.event.scale;
         return zoom.attr("transform", "translate(" + trans + ")" + " scale(" + scale + ")");
       };
-      return this.svg.call(this.zoom.on("zoom", zoom_func));
+      if (this.zoom_enabled) {
+        return this.svg.call(this.zoom.on("zoom", zoom_func));
+      }
+    };
+
+    Netmap.prototype.init_gradients = function() {
+      var defs, grad;
+
+      defs = this.svg.append("defs");
+      grad = defs.append("radialGradient").attr("id", "gradient-left").attr("cx", 1).attr("cy", 0.5);
+      grad.append("stop").attr("offset", "0%").attr("stop-color", "rgba(0, 0, 0, 0)");
+      grad.append("stop").attr("offset", "80%").attr("stop-color", "rgba(255, 0, 255, 0.1)");
+      grad.append("stop").attr("offset", "100%").attr("stop-color", "rgba(255, 0, 255, 0.2)");
+      grad = defs.append("radialGradient").attr("id", "gradient-right").attr("cx", 0).attr("cy", 0.5);
+      grad.append("stop").attr("offset", "0%").attr("stop-color", "rgba(0, 0, 0, 0)");
+      grad.append("stop").attr("offset", "80%").attr("stop-color", "rgba(255, 0, 255, 0.1)");
+      grad.append("stop").attr("offset", "100%").attr("stop-color", "rgba(255, 0, 255, 0.2)");
+      grad = defs.append("linearGradient").attr("id", "gradient-middle-magenta");
+      grad.append("stop").attr("offset", "0%").attr("stop-color", "rgba(0, 0, 0, 0)");
+      grad.append("stop").attr("offset", "50%").attr("stop-color", "rgba(255, 0, 255, 0.3)");
+      grad.append("stop").attr("offset", "100%").attr("stop-color", "rgba(0, 0, 0, 0)");
+      grad = defs.append("linearGradient").attr("id", "gradient-middle-green");
+      grad.append("stop").attr("offset", "0%").attr("stop-color", "rgba(0, 0, 0, 0)");
+      grad.append("stop").attr("offset", "50%").attr("stop-color", "rgba(0, 255, 0, 0.3)");
+      return grad.append("stop").attr("offset", "100%").attr("stop-color", "rgba(0, 0, 0, 0)");
     };
 
     Netmap.prototype.compute_graph_center = function() {
@@ -320,6 +354,21 @@
 
     Netmap.prototype.get_translate = function() {
       return this.zoom.translate();
+    };
+
+    Netmap.prototype.set_default_rels = function(val) {
+      if (val == null) {
+        val = true;
+      }
+      this.default_rels = val;
+      return this.update_positions();
+    };
+
+    Netmap.prototype.set_all_rels_to_current = function() {
+      this.rels().forEach(function(rel) {
+        return rel.is_current = 1;
+      });
+      return this.update_positions();
     };
 
     Netmap.prototype.init_callbacks = function() {
@@ -948,20 +997,15 @@
         return this.halfwheel(center_entity_id);
       }
       count = 0;
-      center_x = this.width / 2 - this.zoom.translate()[0];
-      center_y = this.height / 2 - this.zoom.translate()[1];
+      center_x = 0;
+      center_y = 0;
       _ref = this._data["entities"];
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
         entity = _ref[i];
-        if (parseInt(entity.id) === center_entity_id) {
-          this._data["entities"][i].x = center_x;
-          this._data["entities"][i].y = center_y;
-        } else {
-          angle = (2 * Math.PI / (this._data["entities"].length - (center_entity_id != null ? 1 : 0))) * count;
-          this._data["entities"][i].x = center_x + this.distance * Math.cos(angle);
-          this._data["entities"][i].y = center_y + this.distance * Math.sin(angle);
-          count++;
-        }
+        angle = Math.PI + (2 * Math.PI / (this._data["entities"].length - (center_entity_id != null ? 1 : 0))) * count;
+        this._data["entities"][i].x = center_x + this.distance * Math.cos(angle);
+        this._data["entities"][i].y = center_y + this.distance * Math.sin(angle);
+        count++;
       }
       return this.update_positions();
     };
@@ -1056,6 +1100,98 @@
       return this.update_positions();
     };
 
+    Netmap.prototype.circle = function(distance, random_offset) {
+      if (distance == null) {
+        distance = 1000;
+      }
+      if (random_offset == null) {
+        random_offset = false;
+      }
+      this.svg.attr('class', 'circle');
+      this.distance = distance;
+      this.mode = 'circle';
+      return this.wheel(null, random_offset);
+    };
+
+    Netmap.prototype.vertical = function(spacing) {
+      var y;
+
+      if (spacing == null) {
+        spacing = 100;
+      }
+      this.svg.attr('class', 'vertical axis');
+      this.mode = 'vertical';
+      y = this.entities().length * spacing;
+      this.entities().forEach(function(e, i) {
+        e.x = 0;
+        return e.y = -y / 2 + (i * spacing);
+      });
+      return this.update_positions();
+    };
+
+    Netmap.prototype.vertical_cats = function(layout_cats, spacing, width) {
+      var all_ids, cat, col_height, col_ids, col_x, e, eid, i, id, ids_to_remove, j, subcat, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
+
+      if (spacing == null) {
+        spacing = 100;
+      }
+      if (width == null) {
+        width = 2000;
+      }
+      this.svg.attr('class', 'vertical axis');
+      this.mode = 'vertical_cats';
+      this.layout_cats = layout_cats;
+      all_ids = [];
+      _ref = this.layout_cats;
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        cat = _ref[i];
+        col_x = i * width / (this.layout_cats.length - 1);
+        col_ids = [];
+        for (_j = 0, _len1 = cat.length; _j < _len1; _j++) {
+          subcat = cat[_j];
+          col_ids = col_ids.concat(subcat);
+          all_ids = all_ids.concat(subcat);
+          col_ids.push(false);
+        }
+        col_ids.pop();
+        col_height = col_ids.length * spacing;
+        for (j = _k = 0, _len2 = col_ids.length; _k < _len2; j = ++_k) {
+          id = col_ids[j];
+          if (id) {
+            e = this.entity_by_id(id);
+            e.x = col_x;
+            e.y = -col_height / 2 + (j * spacing);
+            e.cat = i;
+          }
+        }
+      }
+      ids_to_remove = this.entity_ids().filter(function(id) {
+        return all_ids.indexOf(id) === -1;
+      });
+      for (_l = 0, _len3 = ids_to_remove.length; _l < _len3; _l++) {
+        eid = ids_to_remove[_l];
+        this.remove_entity(eid);
+      }
+      this.remove_orphaned_rels();
+      return this.build();
+    };
+
+    Netmap.prototype.horizontal = function(spacing) {
+      var x;
+
+      if (spacing == null) {
+        spacing = 100;
+      }
+      this.svg.attr('class', 'horizontal axis');
+      this.mode = 'horizontal';
+      x = this.entities().length * spacing;
+      this.entities().forEach(function(e, i) {
+        e.y = 0;
+        return e.x = -x / 2 + (i * spacing);
+      });
+      return this.update_positions();
+    };
+
     Netmap.prototype.shuffle_array = function(array) {
       var counter, index, temp;
 
@@ -1097,6 +1233,9 @@
       _ref1 = this._data.rels;
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         r = _ref1[_j];
+        if (!((r.source != null) && (r.target != null))) {
+          return false;
+        }
         if (!((r.source.x != null) && (r.source.y != null) && (r.target.x != null) && (r.target.y != null))) {
           return false;
         }
@@ -1115,7 +1254,7 @@
         return "translate(" + (d.source.x + d.target.x) / 2 + "," + (d.source.y + d.target.y) / 2 + ")";
       });
       d3.selectAll(".line").attr("d", function(d) {
-        var ax, ay, dr, dx, dxm1, dxm2, dy, dym1, dym2, m, n, node_radius1, node_radius2, q, rm1, rm2, spacing, x1, xa, xb, xm1, xm2, y1, ya, yb, ym1, ym2;
+        var ax, ay, c, cats, center, dir, dr, dx, dxm1, dxm2, dy, dym1, dym2, e1, e2, m, n, node_radius1, node_radius2, q, rm1, rm2, spacing, x1, x2, xa, xb, xdir, xm1, xm2, y1, y2, ya, yb, ydir, ym1, ym2;
 
         dx = d.target.x - d.source.x;
         dy = d.target.y - d.source.y;
@@ -1133,10 +1272,53 @@
         yb = -ya;
         x1 = d.x1;
         y1 = d.y1;
-        n = t.rel_curve_ratio(d);
-        if (d.x1 === null) {
-          x1 = -ya * n;
-          y1 = xa * n;
+        if (t.default_rels || d.x1 === null || d.y1 === null) {
+          if (t.straight_rels) {
+            x1 = 0;
+            y1 = 0;
+          } else {
+            if (t.mode === 'circle') {
+              center = t.svg_center();
+              n = 10 / Math.sqrt(dr);
+              xdir = Math.abs(ax - center.x) / (ax - center.x);
+              ydir = Math.abs(ay - center.y) / (ay - center.y);
+              x1 = -Math.abs(dy) * xdir * n;
+              y1 = -Math.abs(dx) * ydir * n;
+            } else if (t.mode === 'vertical') {
+              dir = d.category_id === 1 ? 1 : -1;
+              x1 = xa + dir * Math.abs(dy) * 0.67;
+              y1 = ya;
+              x2 = xa + dir * Math.abs(dy) * 0.67;
+              y2 = yb;
+            } else if (t.mode === 'vertical_cats') {
+              e1 = t.entity_by_id(d.entity1_id);
+              e2 = t.entity_by_id(d.entity2_id);
+              cats = [e1.cat, e2.cat].sort();
+              if (e1.cat === e2.cat) {
+                dir = d.category_id === 1 && e1.cat !== 0 ? 1 : -1;
+                x1 = xa + dir * Math.abs(dy) * 0.67;
+                y1 = ya;
+                x2 = xb + dir * Math.abs(dy) * 0.67;
+                y2 = yb;
+              } else {
+                dir = xb - xa > 0 ? 1 : -1;
+                x1 = xa + dir * Math.abs(dx) * 0.5;
+                y1 = ya;
+                x2 = xb - dir * Math.abs(dx) * 0.5;
+                y2 = yb;
+              }
+            } else if (t.mode === 'horizontal') {
+              dir = d.category_id === 1 ? -1 : 1;
+              y1 = ya + dir * Math.abs(dx) * 0.67;
+              x1 = xa;
+              y2 = ya + dir * Math.abs(dx) * 0.67;
+              x2 = xb;
+            } else {
+              n = t.rel_curve_ratio(d);
+              x1 = -ya * n;
+              y1 = xa * n;
+            }
+          }
         }
         spacing = 5;
         node_radius1 = (25 * (d.source.x >= d.target.x ? d.target.scale : d.source.scale)) + spacing;
@@ -1151,9 +1333,29 @@
         ym1 = node_radius1 * dym1 / rm1;
         xm2 = node_radius2 * dxm2 / rm2;
         ym2 = node_radius2 * dym2 / rm2;
-        m = "M" + (xa - xm1) + "," + (ya - ym1);
-        q = "Q" + x1 + "," + y1 + "," + (xb - xm2) + "," + (yb - ym2);
-        return m + q;
+        if (t.mode === 'vertical') {
+          m = "M" + (xa + dir * node_radius1) + "," + ya;
+          c = "C" + (x1 + dir * node_radius1) + " " + y1 + "," + (x2 + dir * node_radius1) + " " + y2 + "," + (xb + dir * node_radius2) + "," + yb;
+          return m + c;
+        } else if (t.mode === 'vertical_cats') {
+          if (e1.cat === e2.cat) {
+            m = "M" + (xa + dir * node_radius1) + "," + ya;
+            c = "C" + (x1 + dir * node_radius1) + " " + y1 + "," + (x2 + dir * node_radius1) + " " + y2 + "," + (xb + dir * node_radius2) + "," + yb;
+            return m + c;
+          } else {
+            m = "M" + (xa + dir * node_radius1) + "," + ya;
+            c = "C" + (x1 + dir * node_radius1) + " " + y1 + "," + (x2 - dir * node_radius1) + " " + y2 + "," + (xb - dir * node_radius2) + "," + yb;
+            return m + c;
+          }
+        } else if (t.mode === 'horizontal') {
+          m = "M" + xa + "," + (ya + dir * node_radius1);
+          c = "C" + x1 + " " + (y1 + dir * node_radius1) + "," + x2 + " " + (y2 + dir * node_radius1) + "," + xb + "," + (yb + dir * node_radius2);
+          return m + c;
+        } else {
+          m = "M" + (xa - xm1) + "," + (ya - ym1);
+          q = "Q" + x1 + "," + y1 + "," + (xb - xm2) + "," + (yb - ym2);
+          return m + q;
+        }
       });
       d3.selectAll('.text text').attr('x', function(d) {
         return d.x;
@@ -1178,7 +1380,7 @@
         this._data.rels[j]["y1"] = null;
       }
       this.force_enabled = true;
-      this.force = d3.layout.force().gravity(.3).distance(this.distance).charge(-5000).friction(0.7).size([0, 0]).nodes(this._data.entities, function(d) {
+      this.force = d3.layout.force().gravity(this.gravity).distance(this.distance).charge(this.charge).friction(0.7).size([0, 0]).nodes(this._data.entities, function(d) {
         return d.id;
       }).links(this._data.rels, function(d) {
         return d.id;
@@ -1323,7 +1525,7 @@
     };
 
     Netmap.prototype.build_rel_paths = function() {
-      var groups, t;
+      var groups, paths, t;
 
       t = this;
       groups = this.svg.selectAll('g.rel');
@@ -1336,12 +1538,36 @@
       }).attr("class", "line bg").attr("opacity", 0).attr("stroke", "white").attr("stroke-width", 20);
       groups.append("path").attr("id", function(d) {
         return "path-highlight-" + d.id;
-      }).attr("class", "line highlight").attr("opacity", 0.6).attr("fill", "none").style("stroke-width", function(d) {
+      }).attr("class", "line highlight").attr("opacity", 0.6).attr("fill", "none").attr("stroke", function(d) {
+        if (d.color) {
+          return d.color;
+        } else {
+          return '#ffff80';
+        }
+      }).style("stroke-width", function(d) {
         return 4 * d.scale;
       });
-      groups.append("path").attr("id", function(d) {
+      paths = groups.append("path").attr("id", function(d) {
         return "path-" + d.id;
-      }).attr("class", "line").attr("opacity", 0.6).attr("fill", "none").attr("stroke", function(d) {
+      }).attr("class", "line").attr("opacity", function(d) {
+        if (d.opacity) {
+          return d.opacity;
+        } else {
+          return 0.6;
+        }
+      }).attr("fill", "none").attr("fill", function(d) {
+        if (d.fill_color) {
+          return d.fill_color;
+        } else {
+          return "none";
+        }
+      }).attr("fill-opacity", function(d) {
+        if (d.fill_opacity) {
+          return d.fill_opacity;
+        } else {
+          return 0;
+        }
+      }).attr("stroke", function(d) {
         if (d.color) {
           return d.color;
         } else {
@@ -1357,27 +1583,34 @@
       }).attr("text-anchor", "middle").append("textPath").attr("class", "labelpath").attr("startOffset", "50%").attr("xlink:href", function(d) {
         return "#path-" + d.id;
       }).attr("font-size", function(d) {
-        return 9 * Math.sqrt(d.scale);
+        return 10 * Math.sqrt(d.scale);
       }).text(function(d) {
         return d.label;
       });
     };
 
-    Netmap.prototype.toggle_selected_rel = function(id, value) {
+    Netmap.prototype.toggle_selected_rel = function(id, value, deselect_all) {
       var rel, t;
 
       if (value == null) {
         value = null;
       }
+      if (deselect_all == null) {
+        deselect_all = true;
+      }
       t = this;
       rel = d3.select("#rel-" + id + ".rel");
       return rel.classed("selected", function(d, i) {
         if (value === true || value === false) {
-          t.deselect_all();
+          if (deselect_all) {
+            t.deselect_all();
+          }
           return value;
         } else {
           value = !rel.classed("selected");
-          t.deselect_all();
+          if (deselect_all) {
+            t.deselect_all();
+          }
           return value;
         }
       });
@@ -1434,21 +1667,35 @@
       }).call(entity_drag).on("mouseover", function(d) {
         var r, _i, _len, _ref, _results;
 
+        if (t.mode !== 'default') {
+          t.toggle_selected_entity(d.id, true);
+        }
         _ref = t.rels_by_entity(d.id);
         _results = [];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           r = _ref[_i];
-          _results.push(t.toggle_hovered_rel(r.id, true));
+          if (t.mode === 'default') {
+            _results.push(t.toggle_hovered_rel(r.id, true));
+          } else {
+
+          }
         }
         return _results;
       }).on("mouseout", function(d) {
         var r, _i, _len, _ref, _results;
 
+        if (t.mode !== 'default') {
+          t.toggle_selected_entity(d.id, true);
+        }
         _ref = t.rels_by_entity(d.id);
         _results = [];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           r = _ref[_i];
-          _results.push(t.toggle_hovered_rel(r.id, false));
+          if (t.mode === 'default') {
+            _results.push(t.toggle_hovered_rel(r.id, false));
+          } else {
+
+          }
         }
         return _results;
       });
@@ -1456,13 +1703,22 @@
       this.build_entity_images();
       this.build_entity_labels();
       this.svg.selectAll(".entity").on("click", function(d, i) {
+        var r, _i, _len, _ref, _results;
+
         $('#zoom').append(this);
-        if (!t.drag) {
+        if (!(t.drag || t.mode !== 'default')) {
           t.toggle_selected_entity(d.id);
         }
-        if (!t.drag) {
-          return $(window).trigger('selection', this);
+        if (!(t.drag || t.mode !== 'default')) {
+          $(window).trigger('selection', this);
         }
+        _ref = t.rels_by_entity(d.id);
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          r = _ref[_i];
+          _results.push($("#rel-" + r.id).insertAfter($('.rel').last()));
+        }
+        return _results;
       });
       return this.svg.selectAll(".entity a").on("click", function(d, i) {
         return d3.event.stopPropagation();
@@ -1470,15 +1726,15 @@
     };
 
     Netmap.prototype.build_entity_images = function() {
-      var groups, t;
+      var bgs, groups, t;
 
       t = this;
       groups = this.svg.selectAll('g.entity');
       $('.entity circle.image-bg').remove();
       $('.entity .image-clippath').remove();
       $('.entity image.image').remove();
-      groups.append("circle").attr("class", function(d) {
-        if (d.image) {
+      bgs = groups.append("circle").attr("class", function(d) {
+        if (d.image && !t.hide_images) {
           return "image-bg";
         } else {
           return "image-bg custom";
@@ -1492,6 +1748,15 @@
       }).attr("stroke", "white").attr("stroke-width", function(d) {
         return 7 * d.scale;
       }).attr("stroke-opacity", 0);
+      if (t.hide_images) {
+        bgs.style("fill", function(d, i) {
+          if (d.color != null) {
+            return d.color;
+          } else {
+            return '#444';
+          }
+        });
+      }
       groups.append("clipPath").attr("id", function(d) {
         return "image-clip-" + d.id;
       }).attr("class", "image-clippath").append("circle").attr("class", "image-clip").attr("opacity", 1).attr("r", function(d) {
@@ -1535,60 +1800,98 @@
     };
 
     Netmap.prototype.build_entity_labels = function() {
-      var groups, links, t;
+      var groups, links, t, text;
 
       t = this;
       groups = this.svg.selectAll('g.entity');
       $('.entity a.entity_link').remove();
       $('.entity rect.text_rect').remove();
-      links = groups.append("a").attr("class", "entity_link").attr("xlink:href", function(d) {
-        return d.url;
-      }).attr("title", function(d) {
-        return d.description;
-      });
-      links.append("text").attr("class", "entitylabel1").attr("dx", 0).attr("dy", function(d) {
-        return 42 * d.scale;
-      }).attr("text-anchor", "middle").attr("font-size", function(d) {
-        return 12 * d.scale;
-      }).text(function(d) {
-        return t.split_name(d.name)[0];
-      });
-      links.append("text").attr("class", "entitylabel2").attr("dx", 0).attr("dy", function(d) {
-        return 59 * d.scale;
-      }).attr("text-anchor", "middle").attr("font-size", function(d) {
-        return 12 * d.scale;
-      }).text(function(d) {
-        return t.split_name(d.name)[1];
-      });
-      groups.filter(function(d) {
-        return t.split_name(d.name)[0] !== d.name;
-      }).insert("rect", ":first-child").attr("class", "text_rect").attr("fill", this.entity_background_color).attr("opacity", this.entity_background_opacity).attr("rx", this.entity_background_corner_radius).attr("ry", this.entity_background_corner_radius).attr("x", function(d) {
-        return -$(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width / 2 - 3;
-      }).attr("y", function(d) {
-        var extra_offset, image_offset, text_offset;
+      if (t.entity_links) {
+        links = groups.append("a").attr("class", "entity_link").attr("xlink:href", function(d) {
+          return d.url;
+        }).attr("title", function(d) {
+          return d.description;
+        });
+        text = links.append("text");
+      } else {
+        text = groups.append("text");
+      }
+      text.attr("class", "entitylabel1").attr("dx", 0).attr("text-anchor", "middle");
+      if (t.hide_images) {
+        text.attr("dy", function(d) {
+          if (t.split_name(d.name, 12)[1].length === 0) {
+            return 3 * d.scale;
+          } else {
+            return 0;
+          }
+        }).attr("font-size", function(d) {
+          return 8 * d.scale;
+        }).text(function(d) {
+          return t.split_name(d.name, 12)[0];
+        });
+      } else {
+        text.attr("dy", function(d) {
+          return 42 * d.scale;
+        }).attr("font-size", function(d) {
+          return 12 * d.scale;
+        }).text(function(d) {
+          return t.split_name(d.name)[0];
+        });
+      }
+      if (t.entity_links) {
+        text = links.append("text");
+      } else {
+        text = groups.append("text");
+      }
+      text.attr("class", "entitylabel2").attr("dx", 0).attr("text-anchor", "middle");
+      if (t.hide_images) {
+        text.attr("dy", function(d) {
+          return 9 * d.scale;
+        }).attr("font-size", function(d) {
+          return 8 * d.scale;
+        }).text(function(d) {
+          return t.split_name(d.name, 12)[1];
+        });
+      } else {
+        text.attr("dy", function(d) {
+          return 59 * d.scale;
+        }).attr("font-size", function(d) {
+          return 12 * d.scale;
+        }).text(function(d) {
+          return t.split_name(d.name)[1];
+        });
+      }
+      if (!t.hide_images) {
+        groups.filter(function(d) {
+          return t.split_name(d.name)[0] !== d.name;
+        }).insert("rect", ":first-child").attr("class", "text_rect").attr("fill", this.entity_background_color).attr("opacity", this.entity_background_opacity).attr("rx", this.entity_background_corner_radius).attr("ry", this.entity_background_corner_radius).attr("x", function(d) {
+          return -$(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width / 2 - 3;
+        }).attr("y", function(d) {
+          var extra_offset, image_offset, text_offset;
 
-        image_offset = 28;
-        text_offset = $(this.parentNode).find(".entity_link text")[0].getBBox().height;
-        extra_offset = 5;
-        return (image_offset + extra_offset) * d.scale + text_offset;
-      }).attr("width", function(d) {
-        return $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width + 6;
-      }).attr("height", function(d) {
-        return $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().height + 4;
-      });
-      return groups.insert("rect", ":first-child").attr("class", "text_rect").attr("fill", this.entity_background_color).attr("opacity", this.entity_background_opacity).attr("rx", this.entity_background_corner_radius).attr("ry", this.entity_background_corner_radius).attr("x", function(d) {
-        return -$(this.parentNode).find(".entity_link text")[0].getBBox().width / 2 - 3;
-      }).attr("y", function(d) {
-        var extra_offset, image_offset;
+          image_offset = 28;
+          text_offset = $(this.parentNode).find(".entity_link text")[0].getBBox().height;
+          extra_offset = 5;
+          return (image_offset + extra_offset) * d.scale + text_offset;
+        }).attr("width", function(d) {
+          return $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().width + 6;
+        }).attr("height", function(d) {
+          return $(this.parentNode).find(".entity_link text:nth-child(2)")[0].getBBox().height + 4;
+        });
+        return groups.insert("rect", ":first-child").attr("class", "text_rect").attr("fill", this.entity_background_color).attr("opacity", this.entity_background_opacity).attr("rx", this.entity_background_corner_radius).attr("ry", this.entity_background_corner_radius).attr("x", function(d) {
+          return -$(this.parentNode).find(".entity_link text")[0].getBBox().width / 2 - 3;
+        }).attr("y", function(d) {
+          var extra_offset, image_offset;
 
-        image_offset = 28;
-        extra_offset = 1;
-        return (image_offset + extra_offset) * d.scale;
-      }).attr("width", function(d) {
-        return $(this.parentNode).find(".entity_link text")[0].getBBox().width + 6;
-      }).attr("height", function(d) {
-        return $(this.parentNode).find(".entity_link text")[0].getBBox().height + 4;
-      });
+          image_offset = 28;
+          extra_offset = 1;
+          return (image_offset + extra_offset) * d.scale;
+        }).attr("width", function(d) {
+          return $(this.parentNode).find(".entity_link text")[0].getBBox().width + 6;
+        }).attr("height", function(d) {
+          return $(this.parentNode).find(".entity_link text")[0].getBBox().height + 4;
+        });
+      }
     };
 
     Netmap.prototype.last_entity_id = function() {
@@ -1602,13 +1905,29 @@
       return elem.id;
     };
 
-    Netmap.prototype.toggle_selected_entity = function(id) {
-      var g, klass;
+    Netmap.prototype.toggle_selected_entity = function(id, toggle_connected_entities) {
+      var c, g, klass, r, selected, _i, _len, _ref, _results;
 
+      if (toggle_connected_entities == null) {
+        toggle_connected_entities = false;
+      }
       g = $("#entity-" + id + ".entity");
       klass = g.attr("class") === "entity" ? "entity selected" : "entity";
       this.deselect_all();
-      return g.attr("class", klass);
+      g.attr("class", klass);
+      selected = g.attr("class") === "entity selected";
+      _ref = this.rels_by_entity(id);
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        r = _ref[_i];
+        this.toggle_selected_rel(r.id, selected, false);
+        if (toggle_connected_entities) {
+          _results.push(c = $("#entity-" + this.other_entity_id(r, id) + ".entity"));
+        } else {
+          _results.push(void 0);
+        }
+      }
+      return _results;
     };
 
     Netmap.prototype.entities_on_top = function() {
@@ -1652,7 +1971,13 @@
       if (r.is_directional === true) {
         return true;
       }
+      if (r.is_directional === 1) {
+        return true;
+      }
       if (r.is_directional === false) {
+        return false;
+      }
+      if (r.is_directional === 0) {
         return false;
       }
       return r.category_ids.map(function(cat_id) {
@@ -1677,8 +2002,11 @@
     };
 
     Netmap.prototype.update_rel_is_currents = function() {
+      var t;
+
+      t = this;
       return d3.selectAll(".line:not(.highlight):not(.bg)").style("stroke-dasharray", function(d) {
-        if (d.is_current === 0 || d.is_current === null || d.end_date) {
+        if (!t.current_rels && (d.is_current === 0 || d.is_current === null || d.end_date)) {
           return "5,2";
         } else {
           return "";
@@ -1695,19 +2023,21 @@
           return this.parentNode.insertBefore(this, this);
         });
       }
-      return d3.selectAll(".line:not(.highlight)").attr("marker-end", function(d) {
-        if (t.rel_is_directional(d) && d.source.x < d.target.x) {
-          return "url(#marker1)";
-        } else {
-          return "";
-        }
-      }).attr("marker-start", function(d) {
-        if (t.rel_is_directional(d) && d.source.x >= d.target.x) {
-          return "url(#marker2)";
-        } else {
-          return "";
-        }
-      });
+      if (t.mode !== 'vertical_cats') {
+        return d3.selectAll(".line:not(.highlight)").attr("marker-end", function(d) {
+          if (t.rel_is_directional(d) && d.source.x < d.target.x) {
+            return "url(#marker1)";
+          } else {
+            return "";
+          }
+        }).attr("marker-start", function(d) {
+          if (t.rel_is_directional(d) && d.source.x >= d.target.x) {
+            return "url(#marker2)";
+          } else {
+            return "";
+          }
+        });
+      }
     };
 
     Netmap.prototype.set_rel_label = function(id, label) {
@@ -2075,7 +2405,9 @@
     };
 
     Netmap.prototype.image_for_entity = function(e) {
-      if (e.hide_image) {
+      if (this.hide_images) {
+        return null;
+      } else if (e.hide_image) {
         if (e.type === 'Person') {
           return 'http://littlesis.s3.amazonaws.com/images/system/netmap-person.png';
         } else if (e.type === 'Org') {
@@ -2195,6 +2527,37 @@
 
     Netmap.prototype.is_ie = function() {
       return window.navigator.userAgent.indexOf("MSIE") !== -1 || window.navigator.userAgent.indexOf("Trident") !== -1;
+    };
+
+    Netmap.prototype.limit_entities = function(num) {
+      if (num == null) {
+        num = 20;
+      }
+      this._data.entities = data.entities.slice(0, num);
+      return this.remove_orphaned_rels();
+    };
+
+    Netmap.prototype.shuffle_entities = function() {
+      return this._data.entities = this.shuffle_array(this._data.entities);
+    };
+
+    Netmap.prototype.random_color = function() {
+      var color, i, letters, _i;
+
+      letters = '0123456789ABCDEF'.split('');
+      color = '#';
+      for (i = _i = 0; _i <= 5; i = ++_i) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    };
+
+    Netmap.prototype.other_entity_id = function(r, id) {
+      if (r.entity1_id.toString() === id.toString()) {
+        return r.entity2_id;
+      } else {
+        return r.entity1_id;
+      }
     };
 
     return Netmap;
