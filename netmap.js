@@ -127,9 +127,12 @@
   })();
 
   Netmap = (function() {
-    function Netmap(width, height, parent_selector, key, clean_mode) {
+    function Netmap(width, height, parent_selector, key, clean_mode, zoom_enabled) {
       if (clean_mode == null) {
         clean_mode = true;
+      }
+      if (zoom_enabled == null) {
+        zoom_enabled = true;
       }
       this.width = width;
       this.height = height;
@@ -137,7 +140,7 @@
       this.max_zoom = 2;
       this.parent_selector = parent_selector;
       this.clean_mode = clean_mode;
-      this.zoom_enabled = true;
+      this.zoom_enabled = zoom_enabled;
       this.init_svg();
       this.force_enabled = false;
       this.entity_background_opacity = 0.6;

@@ -78,14 +78,14 @@ class LittlesisApi
     
 class Netmap
 
-  constructor: (width, height, parent_selector, key, clean_mode = true) ->
+  constructor: (width, height, parent_selector, key, clean_mode = true, zoom_enabled = true) ->
     @width = width
     @height = height
     @min_zoom = 0.1
     @max_zoom = 2
     @parent_selector = parent_selector
     @clean_mode = clean_mode
-    @zoom_enabled = true
+    @zoom_enabled = zoom_enabled
     @init_svg()
     @force_enabled = false
     @entity_background_opacity = 0.6
