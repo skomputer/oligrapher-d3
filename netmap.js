@@ -2412,9 +2412,9 @@
         return null;
       } else if (e.hide_image) {
         if (e.type === 'Person') {
-          return 'http://littlesis.s3.amazonaws.com/images/system/netmap-person.png';
+          return 'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-person.png';
         } else if (e.type === 'Org') {
-          return 'http://littlesis.s3.amazonaws.com/images/system/netmap-org.png';
+          return 'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-org.png';
         } else {
           return null;
         }

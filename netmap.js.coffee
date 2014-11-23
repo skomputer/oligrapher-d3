@@ -1728,9 +1728,9 @@ class Netmap
       null
     else if e.hide_image
       if e.type == 'Person'
-        'http://littlesis.s3.amazonaws.com/images/system/netmap-person.png'
+        'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-person.png'
       else if e.type == 'Org'
-        'http://littlesis.s3.amazonaws.com/images/system/netmap-org.png'
+        'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-org.png'
       else
         null
     else
