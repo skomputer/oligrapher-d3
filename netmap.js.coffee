@@ -1800,7 +1800,7 @@ class Netmap
       midy = (e1.y + e2.y)/2
       angle = Math.atan2(e1.x - e2.x, e2.y - e1.y)
       num = data.entities.length
-      spacing = Math.min(50, 200 - (num*10))
+      spacing = Math.max(50, 200 - (num*10))
       data.entities.forEach((e, i) ->
         e.x = midx + Math.cos(angle) * (-(num-1)*spacing/2 + i*spacing)
         e.y = midy + Math.sin(angle) * (-(num-1)*spacing/2 + i*spacing)
