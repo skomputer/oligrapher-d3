@@ -4,7 +4,7 @@ class LittlesisApi
 
   constructor: (key) ->
     @key = key
-    @base_url = "http://api.littlesis.org/"
+    @base_url = "http://lilsis.local/api_dev.php/"
 
   entities_and_rels_url: (entity_ids) ->
     @base_url + "map/entities.json?entity_ids=" + entity_ids.join(",") + "&_key=" + @key
@@ -36,6 +36,16 @@ class LittlesisApi
       type: "GET",
       dataType: "json"
     })   
+
+  get_add_interlocks_data: (entity1_id, entity2_id, entity_ids, callback) ->
+    $.ajax({
+      url: @base_url + "map/addInterlocksData.json",
+      data: { "entity1_id": entity1_id, "entity2_id": entity2_id, "entity_ids": entity_ids },
+      success: callback,
+      error: -> alert("There was an error retrieving data from the API"),
+      type: "GET",
+      dataType: "json"
+    })
 
   search_entities: (q, callback) ->
     $.ajax({
@@ -387,6 +397,12 @@ class Netmap
           if t.keymap[84] or t.keymap[116]
             if $(t.parent_selector + ":hover").length > 0
               $(window).trigger('toggle_add_text_form')
+          # "I" or "i"
+          if t.keymap[73] or t.keymap[105]
+            if $(t.parent_selector + ':hover').length > 0
+              data = d3.selectAll('.entity.selected').data()
+              if data.length > 0 and data[0].id.toString().indexOf('x') == -1
+                $(window).trigger('toggle_add_interlocks_form', data[0])
           # "="
           if t.keymap[61] or t.keymap[187]
             t.zoom_by(1.2)
@@ -470,6 +486,9 @@ class Netmap
 
   entities: ->
     @_data.entities
+
+  littlesis_entities: ->
+    @_data.entities.filter((e) -> e.id.toString().indexOf('x') == -1)
 
   littlesis_entity_ids: ->
     @entity_ids().filter((id) -> id.toString().indexOf('x') == -1)
@@ -1208,32 +1227,7 @@ class Netmap
             t.toggle_hovered_rel(r.id, false)
           else
             # t.toggle_selected_rel(r.id, false, false)
-      )
-
-    # background for add related entities button
-    # unless @clean_mode
-    #   groups.append("rect")
-    #     .attr("class", "add_button_rect")
-    #     .attr("fill", "#fff")
-    #     .attr("opacity", 0.5)
-    #     .attr("width", 18)
-    #     .attr("height", 18)
-    #     .attr("x", (d) -> 15 * d.scale)
-    #     .attr("y", (d) -> -28 * d.scale)
-    #     .attr("rx", 5)
-    #     .attr("ry", 5)    
-
-    # add related entities button and background squares
-    # unless @clean_mode
-    #   buttons = groups.append("a")
-    #     .attr("class", "add_button")
-    #   buttons.append("text")
-    #     .attr("dx", (d) -> 20 * d.scale)
-    #     .attr("dy", (d) -> -15 * d.scale)
-    #     .text("+")
-    #     .on("click", (d) ->
-    #       t.toggle_add_related_entities_form(d.id)
-    #     )      
+      )  
 
     entities.exit().remove()
 
@@ -1791,8 +1785,42 @@ class Netmap
     @prepare_entities_and_rels()
     @build()
 
+  add_interlocks: (entity1_id, entity2_id, category_ids = []) ->
+    if entity1_id.toString().match(/^\d+$/)
+      entity1_id = parseInt(entity1_id)
+
+    if entity2_id.toString().match(/^\d+$/)
+      entity2_id = parseInt(entity2_id)
+
+    t = this
+    @api.get_add_interlocks_data(entity1_id, entity2_id, @littlesis_entity_ids(), (data) ->
+      e1 = t.entity_by_id(entity1_id)
+      e2 = t.entity_by_id(entity2_id)
+      midx = (e1.x + e2.x)/2
+      midy = (e1.y + e2.y)/2
+      angle = Math.atan2(e1.x - e2.x, e2.y - e1.y)
+      num = data.entities.length
+      spacing = Math.min(50, 200 - (num*10))
+      data.entities.forEach((e, i) ->
+        e.x = midx + Math.cos(angle) * (-(num-1)*spacing/2 + i*spacing)
+        e.y = midy + Math.sin(angle) * (-(num-1)*spacing/2 + i*spacing)
+      )
+      new_data = {
+        "entities": t.data().entities.concat(data.entities),
+        "rels": t.data().rels.concat(data.rels),
+        "texts": (if t.data().texts then t.data().texts else [])
+      };
+      t.set_data(new_data)
+      t.build()
+      t.limit_to_current() if t.current_only
+    )
+
+
   entity_options_for_select: ->
     @data().entities.map((e) -> [e.id, e.name])
+
+  littlesis_entity_options_for_select: ->
+    @littlesis_entities().map((e) -> [e.id, e.name])
 
   is_ie: ->
     window.navigator.userAgent.indexOf("MSIE") != -1 or window.navigator.userAgent.indexOf("Trident") != -1

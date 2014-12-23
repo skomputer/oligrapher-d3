@@ -5,7 +5,7 @@
   LittlesisApi = (function() {
     function LittlesisApi(key) {
       this.key = key;
-      this.base_url = "http://api.littlesis.org/";
+      this.base_url = "http://lilsis.local/api_dev.php/";
     }
 
     LittlesisApi.prototype.entities_and_rels_url = function(entity_ids) {
@@ -51,6 +51,23 @@
           "entity_ids": entity_ids,
           "rel_ids": rel_ids,
           "include_cat_ids": include_cats
+        },
+        success: callback,
+        error: function() {
+          return alert("There was an error retrieving data from the API");
+        },
+        type: "GET",
+        dataType: "json"
+      });
+    };
+
+    LittlesisApi.prototype.get_add_interlocks_data = function(entity1_id, entity2_id, entity_ids, callback) {
+      return $.ajax({
+        url: this.base_url + "map/addInterlocksData.json",
+        data: {
+          "entity1_id": entity1_id,
+          "entity2_id": entity2_id,
+          "entity_ids": entity_ids
         },
         success: callback,
         error: function() {
@@ -449,6 +466,14 @@
                 $(window).trigger('toggle_add_text_form');
               }
             }
+            if (t.keymap[73] || t.keymap[105]) {
+              if ($(t.parent_selector + ':hover').length > 0) {
+                data = d3.selectAll('.entity.selected').data();
+                if (data.length > 0 && data[0].id.toString().indexOf('x') === -1) {
+                  $(window).trigger('toggle_add_interlocks_form', data[0]);
+                }
+              }
+            }
             if (t.keymap[61] || t.keymap[187]) {
               t.zoom_by(1.2);
             }
@@ -573,6 +598,12 @@
 
     Netmap.prototype.entities = function() {
       return this._data.entities;
+    };
+
+    Netmap.prototype.littlesis_entities = function() {
+      return this._data.entities.filter(function(e) {
+        return e.id.toString().indexOf('x') === -1;
+      });
     };
 
     Netmap.prototype.littlesis_entity_ids = function() {
@@ -2522,8 +2553,54 @@
       return this.build();
     };
 
+    Netmap.prototype.add_interlocks = function(entity1_id, entity2_id, category_ids) {
+      var t;
+
+      if (category_ids == null) {
+        category_ids = [];
+      }
+      if (entity1_id.toString().match(/^\d+$/)) {
+        entity1_id = parseInt(entity1_id);
+      }
+      if (entity2_id.toString().match(/^\d+$/)) {
+        entity2_id = parseInt(entity2_id);
+      }
+      t = this;
+      return this.api.get_add_interlocks_data(entity1_id, entity2_id, this.littlesis_entity_ids(), function(data) {
+        var angle, e1, e2, midx, midy, new_data, num, spacing;
+
+        e1 = t.entity_by_id(entity1_id);
+        e2 = t.entity_by_id(entity2_id);
+        midx = (e1.x + e2.x) / 2;
+        midy = (e1.y + e2.y) / 2;
+        angle = Math.atan2(e1.x - e2.x, e2.y - e1.y);
+        num = data.entities.length;
+        spacing = Math.min(50, 200 - (num * 10));
+        data.entities.forEach(function(e, i) {
+          e.x = midx + Math.cos(angle) * (-(num - 1) * spacing / 2 + i * spacing);
+          return e.y = midy + Math.sin(angle) * (-(num - 1) * spacing / 2 + i * spacing);
+        });
+        new_data = {
+          "entities": t.data().entities.concat(data.entities),
+          "rels": t.data().rels.concat(data.rels),
+          "texts": (t.data().texts ? t.data().texts : [])
+        };
+        t.set_data(new_data);
+        t.build();
+        if (t.current_only) {
+          return t.limit_to_current();
+        }
+      });
+    };
+
     Netmap.prototype.entity_options_for_select = function() {
       return this.data().entities.map(function(e) {
+        return [e.id, e.name];
+      });
+    };
+
+    Netmap.prototype.littlesis_entity_options_for_select = function() {
+      return this.littlesis_entities().map(function(e) {
         return [e.id, e.name];
       });
     };
