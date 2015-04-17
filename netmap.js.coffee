@@ -1314,6 +1314,7 @@ class Netmap
         .attr("class", "entity_link")
         .attr("xlink:href", (d) -> d.url)
         .attr("title", (d) -> d.description)
+        .attr("target", "_blank")
       text = links.append("text")
     else
       text = groups.append("text")

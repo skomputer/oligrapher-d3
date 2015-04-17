@@ -1845,7 +1845,7 @@
           return d.url;
         }).attr("title", function(d) {
           return d.description;
-        });
+        }).attr("target", "_blank");
         text = links.append("text");
       } else {
         text = groups.append("text");
