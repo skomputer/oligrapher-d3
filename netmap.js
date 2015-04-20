@@ -1618,7 +1618,7 @@
         return "#path-" + d.id;
       }).attr("font-size", function(d) {
         return 10 * Math.sqrt(d.scale);
-      }).text(function(d) {
+      }).attr("target", "_blank").text(function(d) {
         return d.label;
       });
     };
