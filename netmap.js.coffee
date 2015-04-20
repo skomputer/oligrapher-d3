@@ -617,11 +617,12 @@ class Netmap
     @build()
 
   limit_to_cats: (cat_ids) ->
-    for rel in @_data.rels
-      if rel.category_ids?
-        rel.hidden = !(rel.category_ids.filter((id) -> cat_ids.indexOf(id) > -1).length > 0)
-      else
-        rel.hidden = cat_ids.indexOf(rel.category_id) == -1
+    if cat_ids.length > 0
+      for rel in @_data.rels
+        if rel.category_ids?
+          rel.hidden = !(rel.category_ids.filter((id) -> cat_ids.indexOf(id) > -1).length > 0)
+        else
+          rel.hidden = cat_ids.indexOf(rel.category_id) == -1
     @build()
 
   limit_to_current: ->
@@ -634,16 +635,16 @@ class Netmap
     @build()
 
   remove_hidden_rels: ->
-    @_data.rels = @_data.rels.filter((r) -> !r.hidden)    
+    @_data.rels = @_data.rels.filter((r) -> !r.hidden)
     @build()
     
   unconnected_entities: ->
     connected_ids = []
     for r in @_data.rels
-      connected_ids.push(parseInt(r.entity1_id))
-      connected_ids.push(parseInt(r.entity2_id))
+      connected_ids.push(r.entity1_id.toString())
+      connected_ids.push(r.entity2_id.toString())
     @_data.entities.filter((e) ->
-      connected_ids.indexOf(parseInt(e.id)) == -1
+      connected_ids.indexOf(e.id.toString()) == -1
     )
     
   rel_index: (id) ->

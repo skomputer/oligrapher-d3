@@ -863,15 +863,17 @@
     Netmap.prototype.limit_to_cats = function(cat_ids) {
       var rel, _i, _len, _ref;
 
-      _ref = this._data.rels;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        rel = _ref[_i];
-        if (rel.category_ids != null) {
-          rel.hidden = !(rel.category_ids.filter(function(id) {
-            return cat_ids.indexOf(id) > -1;
-          }).length > 0);
-        } else {
-          rel.hidden = cat_ids.indexOf(rel.category_id) === -1;
+      if (cat_ids.length > 0) {
+        _ref = this._data.rels;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          rel = _ref[_i];
+          if (rel.category_ids != null) {
+            rel.hidden = !(rel.category_ids.filter(function(id) {
+              return cat_ids.indexOf(id) > -1;
+            }).length > 0);
+          } else {
+            rel.hidden = cat_ids.indexOf(rel.category_id) === -1;
+          }
         }
       }
       return this.build();
@@ -907,11 +909,11 @@
       _ref = this._data.rels;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         r = _ref[_i];
-        connected_ids.push(parseInt(r.entity1_id));
-        connected_ids.push(parseInt(r.entity2_id));
+        connected_ids.push(r.entity1_id.toString());
+        connected_ids.push(r.entity2_id.toString());
       }
       return this._data.entities.filter(function(e) {
-        return connected_ids.indexOf(parseInt(e.id)) === -1;
+        return connected_ids.indexOf(e.id.toString()) === -1;
       });
     };
 
