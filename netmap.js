@@ -163,7 +163,7 @@
       this.entity_background_opacity = 0.6;
       this.entity_background_color = "#fff";
       this.entity_background_corner_radius = 5;
-      this.distance = 600;
+      this.distance = 300;
       this.api = new LittlesisApi(key);
       this.init_callbacks();
       this.current_only = false;
@@ -867,13 +867,9 @@
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         rel = _ref[_i];
         if (rel.category_ids != null) {
-          if (rel.category_ids.filter(function(id) {
+          rel.hidden = !(rel.category_ids.filter(function(id) {
             return cat_ids.indexOf(id) > -1;
-          }).length > 0) {
-            rel.hidden = false;
-          } else {
-            rel.hidden = true;
-          }
+          }).length > 0);
         } else {
           rel.hidden = cat_ids.indexOf(rel.category_id) === -1;
         }
@@ -1019,7 +1015,7 @@
     };
 
     Netmap.prototype.wheel = function(center_entity_id) {
-      var angle, center_x, center_y, count, entity, i, _i, _len, _ref;
+      var angle, center_x, center_y, count, entity, i, multiplier, _i, _len, _ref;
 
       if (center_entity_id == null) {
         center_entity_id = null;
@@ -1033,12 +1029,13 @@
       count = 0;
       center_x = 0;
       center_y = 0;
+      multiplier = Math.sqrt(this.entities().length / 10);
       _ref = this._data["entities"];
       for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
         entity = _ref[i];
         angle = Math.PI + (2 * Math.PI / (this._data["entities"].length - (center_entity_id != null ? 1 : 0))) * count;
-        this._data["entities"][i].x = center_x + this.distance * Math.cos(angle);
-        this._data["entities"][i].y = center_y + this.distance * Math.sin(angle);
+        this._data["entities"][i].x = center_x + this.distance * multiplier * Math.cos(angle);
+        this._data["entities"][i].y = center_y + this.distance * multiplier * Math.sin(angle);
         count++;
       }
       return this.update_positions();

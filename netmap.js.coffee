@@ -101,7 +101,7 @@ class Netmap
     @entity_background_opacity = 0.6
     @entity_background_color = "#fff"
     @entity_background_corner_radius = 5
-    @distance = 600
+    @distance = 300
     @api = new LittlesisApi(key)
     @init_callbacks()
     @current_only = false
@@ -619,10 +619,7 @@ class Netmap
   limit_to_cats: (cat_ids) ->
     for rel in @_data.rels
       if rel.category_ids?
-        if rel.category_ids.filter((id) -> cat_ids.indexOf(id) > -1).length > 0
-          rel.hidden = false
-        else
-          rel.hidden = true      
+        rel.hidden = !(rel.category_ids.filter((id) -> cat_ids.indexOf(id) > -1).length > 0)
       else
         rel.hidden = cat_ids.indexOf(rel.category_id) == -1
     @build()
@@ -705,10 +702,11 @@ class Netmap
     count = 0
     center_x = 0
     center_y = 0
+    multiplier = Math.sqrt(@entities().length/10)
     for entity, i in @_data["entities"]
       angle = Math.PI + (2 * Math.PI / (@_data["entities"].length - (if center_entity_id? then 1 else 0))) * count
-      @_data["entities"][i].x = center_x + @distance * Math.cos(angle)
-      @_data["entities"][i].y = center_y + @distance * Math.sin(angle)
+      @_data["entities"][i].x = center_x + @distance * multiplier * Math.cos(angle)
+      @_data["entities"][i].y = center_y + @distance * multiplier * Math.sin(angle)
       count++
     @update_positions()
 
