@@ -1143,6 +1143,7 @@ class Netmap
     # anchor tags around category labels
     groups.append("a")
       .attr("xlink:href", (d) -> d.url)
+      .attr("target", "_blank")
       .append("text")
       .attr("class", "label")
       .attr("dy", (d) -> -6 * Math.sqrt(d.scale))
@@ -1154,7 +1155,6 @@ class Netmap
         "#path-" + d.id
       )
       .attr("font-size", (d) -> 10 * Math.sqrt(d.scale))
-      .attr("target", "_blank")
       .text((d) -> d.label)
 
   toggle_selected_rel: (id, value = null, deselect_all = true) ->

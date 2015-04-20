@@ -1612,13 +1612,13 @@
       });
       return groups.append("a").attr("xlink:href", function(d) {
         return d.url;
-      }).append("text").attr("class", "label").attr("dy", function(d) {
+      }).attr("target", "_blank").append("text").attr("class", "label").attr("dy", function(d) {
         return -6 * Math.sqrt(d.scale);
       }).attr("text-anchor", "middle").append("textPath").attr("class", "labelpath").attr("startOffset", "50%").attr("xlink:href", function(d) {
         return "#path-" + d.id;
       }).attr("font-size", function(d) {
         return 10 * Math.sqrt(d.scale);
-      }).attr("target", "_blank").text(function(d) {
+      }).text(function(d) {
         return d.label;
       });
     };
