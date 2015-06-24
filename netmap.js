@@ -176,6 +176,7 @@
       this.charge = -5000;
       this.entity_links = true;
       this.bg_color = null;
+      this.multiple_select = false;
     }
 
     Netmap.prototype.init_svg = function() {
@@ -1635,13 +1636,13 @@
       rel = d3.select("#rel-" + id + ".rel");
       return rel.classed("selected", function(d, i) {
         if (value === true || value === false) {
-          if (deselect_all) {
+          if (deselect_all && !t.multiple_select) {
             t.deselect_all();
           }
           return value;
         } else {
           value = !rel.classed("selected");
-          if (deselect_all) {
+          if (deselect_all && !t.multiple_select) {
             t.deselect_all();
           }
           return value;
@@ -1946,21 +1947,25 @@
       }
       g = $("#entity-" + id + ".entity");
       klass = g.attr("class") === "entity" ? "entity selected" : "entity";
-      this.deselect_all();
-      g.attr("class", klass);
-      selected = g.attr("class") === "entity selected";
-      _ref = this.rels_by_entity(id);
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        r = _ref[_i];
-        this.toggle_selected_rel(r.id, selected, false);
-        if (toggle_connected_entities) {
-          _results.push(c = $("#entity-" + this.other_entity_id(r, id) + ".entity"));
-        } else {
-          _results.push(void 0);
-        }
+      if (!this.multiple_select) {
+        this.deselect_all();
       }
-      return _results;
+      g.attr("class", klass);
+      if (!this.multiple_select) {
+        selected = g.attr("class") === "entity selected";
+        _ref = this.rels_by_entity(id);
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          r = _ref[_i];
+          this.toggle_selected_rel(r.id, selected, false);
+          if (toggle_connected_entities) {
+            _results.push(c = $("#entity-" + this.other_entity_id(r, id) + ".entity"));
+          } else {
+            _results.push(void 0);
+          }
+        }
+        return _results;
+      }
     };
 
     Netmap.prototype.entities_on_top = function() {
@@ -2122,6 +2127,12 @@
       }
     };
 
+    Netmap.prototype.selected_rel_ids = function() {
+      return d3.selectAll($(".rel.selected")).data().map(function(d) {
+        return d.id;
+      });
+    };
+
     Netmap.prototype.selected_rel_id = function() {
       var data;
 
@@ -2248,6 +2259,12 @@
       }
     };
 
+    Netmap.prototype.selected_entity_ids = function() {
+      return d3.selectAll($(".entity.selected")).data().map(function(d) {
+        return d.id;
+      });
+    };
+
     Netmap.prototype.selected_entity_id = function() {
       var data;
 
@@ -2280,6 +2297,12 @@
 
     Netmap.prototype.set_selected_entity_scale = function(value) {
       return this.set_entity_scale(this.selected_entity_id(), value);
+    };
+
+    Netmap.prototype.selected_text_ids = function() {
+      return d3.selectAll($(".text.selected")).data().map(function(d) {
+        return d.id;
+      });
     };
 
     Netmap.prototype.selected_text_id = function() {
@@ -2405,7 +2428,9 @@
 
       g = $("#text-" + id);
       klass = g.attr("class") === "text" ? "text selected" : "text";
-      this.deselect_all();
+      if (!this.multiple_select) {
+        this.deselect_all();
+      }
       return g.attr("class", klass);
     };
 
@@ -2637,6 +2662,14 @@
       } else {
         return r.entity1_id;
       }
+    };
+
+    Netmap.prototype.enable_multiple_select = function() {
+      return this.multiple_select = true;
+    };
+
+    Netmap.prototype.disable_multiple_select = function() {
+      return this.multiple_select = false;
     };
 
     return Netmap;

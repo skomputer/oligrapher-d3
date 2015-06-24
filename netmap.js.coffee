@@ -114,6 +114,7 @@ class Netmap
     @charge = -5000
     @entity_links = true
     @bg_color = null
+    @multiple_select = false
 
   init_svg: ->
     @svg = d3.select(@parent_selector)
@@ -1162,11 +1163,11 @@ class Netmap
 
     rel.classed("selected", (d, i) ->
       if value == true or value == false
-        t.deselect_all() if deselect_all
+        t.deselect_all() if deselect_all and !t.multiple_select
         return value
       else
         value = !rel.classed("selected")
-        t.deselect_all() if deselect_all
+        t.deselect_all() if deselect_all and !t.multiple_select
         return value
     )
 
@@ -1398,17 +1399,18 @@ class Netmap
   toggle_selected_entity: (id, toggle_connected_entities = false) ->
     g = $("#entity-" + id + ".entity")
     klass = if g.attr("class") == "entity" then "entity selected" else "entity"
-    @deselect_all()
+    @deselect_all() if !@multiple_select
     g.attr("class", klass)
     
     # toggle selection for entity's relationships
-    selected = (g.attr("class") == "entity selected")
-    for r in @rels_by_entity(id)
-      @toggle_selected_rel(r.id, selected, false)
-      if toggle_connected_entities
-        c = $("#entity-" + @other_entity_id(r, id) + ".entity")
-        # klass = if c.attr("class") == "entity" then "entity selected" else "entity"
-        # c.attr("class", klass)
+    if !@multiple_select
+      selected = (g.attr("class") == "entity selected")
+      for r in @rels_by_entity(id)
+        @toggle_selected_rel(r.id, selected, false)
+        if toggle_connected_entities
+          c = $("#entity-" + @other_entity_id(r, id) + ".entity")
+          # klass = if c.attr("class") == "entity" then "entity selected" else "entity"
+          # c.attr("class", klass)
 
   entities_on_top: ->
     zoom = $("#zoom")
@@ -1516,6 +1518,9 @@ class Netmap
     else
       false
 
+  selected_rel_ids: ->
+    d3.selectAll($(".rel.selected")).data().map((d) -> d.id)
+
   selected_rel_id: ->
     data = d3.selectAll($(".rel.selected")).data()
     return false if data.length != 1
@@ -1589,6 +1594,9 @@ class Netmap
     else
       false
 
+  selected_entity_ids: ->
+    d3.selectAll($(".entity.selected")).data().map((d) -> d.id)
+
   selected_entity_id: ->
     data = d3.selectAll($(".entity.selected")).data()
     return false if data.length != 1
@@ -1611,6 +1619,9 @@ class Netmap
 
   set_selected_entity_scale: (value) ->
     @set_entity_scale(@selected_entity_id(), value)
+
+  selected_text_ids: ->
+    d3.selectAll($(".text.selected")).data().map((d) -> d.id)
 
   selected_text_id: ->
     data = d3.selectAll($(".text.selected")).data()
@@ -1704,7 +1715,7 @@ class Netmap
   toggle_selected_text: (id) ->
     g = $("#text-" + id)
     klass = if g.attr("class") == "text" then "text selected" else "text"
-    @deselect_all()
+    @deselect_all() if !@multiple_select
     g.attr("class", klass)    
 
   text_index: (id) ->
@@ -1842,6 +1853,13 @@ class Netmap
 
   other_entity_id: (r, id) ->
     if r.entity1_id.toString() == id.toString() then r.entity2_id else r.entity1_id
+
+  enable_multiple_select: ->
+    @multiple_select = true
+
+  disable_multiple_select: ->
+    @multiple_select = false
+
 
 if typeof module != "undefined" && module.exports
   # on a server
