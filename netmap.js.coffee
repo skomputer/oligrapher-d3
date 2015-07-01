@@ -1856,10 +1856,11 @@ class Netmap
 
   enable_multiple_select: ->
     @multiple_select = true
+    @svg.classed("annotation", true)
 
   disable_multiple_select: ->
     @multiple_select = false
-
+    @svg.classed("annotation", false)
 
 if typeof module != "undefined" && module.exports
   # on a server

@@ -2665,11 +2665,13 @@
     };
 
     Netmap.prototype.enable_multiple_select = function() {
-      return this.multiple_select = true;
+      this.multiple_select = true;
+      return this.svg.classed("annotation", true);
     };
 
     Netmap.prototype.disable_multiple_select = function() {
-      return this.multiple_select = false;
+      this.multiple_select = false;
+      return this.svg.classed("annotation", false);
     };
 
     return Netmap;
