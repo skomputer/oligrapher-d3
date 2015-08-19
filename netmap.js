@@ -2466,13 +2466,7 @@
       if (this.hide_images) {
         return null;
       } else if (e.hide_image) {
-        if (e.type === 'Person') {
-          return 'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-person.png';
-        } else if (e.type === 'Org') {
-          return 'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-org.png';
-        } else {
-          return null;
-        }
+        return null;
       } else {
         return e.image;
       }

@@ -1733,12 +1733,7 @@ class Netmap
     if @hide_images
       null
     else if e.hide_image
-      if e.type == 'Person'
-        'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-person.png'
-      else if e.type == 'Org'
-        'http://pai-littlesis.s3.amazonaws.com/images/system/netmap-org.png'
-      else
-        null
+      null
     else
       e.image
 
