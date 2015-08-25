@@ -4,7 +4,7 @@ class LittlesisApi
 
   constructor: (key) ->
     @key = key
-    @base_url = "http://api.littlesis.org/"
+    @base_url = "//api.littlesis.org/"
 
   entities_and_rels_url: (entity_ids) ->
     @base_url + "map/entities.json?entity_ids=" + entity_ids.join(",") + "&_key=" + @key
