@@ -1295,10 +1295,10 @@ class Netmap
       .append("image")
       .attr("class", "image")
       .attr("xlink:href", (d) -> t.image_for_entity(d))
-      .attr("x", (d) -> if t.has_image(d) then -40 * d.scale else -25 * d.scale)
-      .attr("y", (d) -> if t.has_image(d) then -40 * d.scale else -25 * d.scale)
-      .attr("width", (d) -> if t.has_image(d) then (80 * d.scale) else (50 * d.scale))
-      .attr("height", (d) -> if t.has_image(d) then (80 * d.scale) else (50 * d.scale))
+      .attr("x", (d) -> if t.has_image(d) then -25 * d.scale else -25 * d.scale)
+      .attr("y", (d) -> if t.has_image(d) then -25 * d.scale else -25 * d.scale)
+      .attr("width", (d) -> if t.has_image(d) then (50 * d.scale) else (50 * d.scale))
+      .attr("height", (d) -> if t.has_image(d) then (50 * d.scale) else (50 * d.scale))
       .attr("clip-path", (d) -> "url(#image-clip-" + d.id + ")" )    
 
   build_entity_labels: ->
