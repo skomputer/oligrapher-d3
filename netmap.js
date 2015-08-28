@@ -1806,25 +1806,25 @@
         return t.image_for_entity(d);
       }).attr("x", function(d) {
         if (t.has_image(d)) {
-          return -25 * d.scale;
+          return -40 * d.scale;
         } else {
           return -25 * d.scale;
         }
       }).attr("y", function(d) {
         if (t.has_image(d)) {
-          return -25 * d.scale;
+          return -40 * d.scale;
         } else {
           return -25 * d.scale;
         }
       }).attr("width", function(d) {
         if (t.has_image(d)) {
-          return 50 * d.scale;
+          return 80 * d.scale;
         } else {
           return 50 * d.scale;
         }
       }).attr("height", function(d) {
         if (t.has_image(d)) {
-          return 50 * d.scale;
+          return 80 * d.scale;
         } else {
           return 50 * d.scale;
         }
