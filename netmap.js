@@ -501,8 +501,8 @@
 
       form = $("#netmap_add_entity");
       $(this.parent_selector).append(form);
-      form.css("left", this.mouse_x - $(this.parent_selector).offset().left - 30 + "px");
-      form.css("top", this.mouse_y - $(this.parent_selector).offset().top - 60 + "px");
+      form.css("right", "5px");
+      form.css("bottom", "5px");
       return form.css("display", form.css("display") === "none" ? "block" : "none");
     };
 
@@ -513,8 +513,8 @@
       form = $("#netmap_add_related_entities");
       $(this.parent_selector).append(form);
       $("#netmap_add_related_entities_entity_id").val(entity_id);
-      form.css("left", entity.x + this.zoom.translate()[0] + 40 + "px");
-      form.css("top", (entity.y + this.zoom.translate()[1] - 30) | 0 + "px");
+      form.css("right", "5px");
+      form.css("bottom", "5px");
       return form.css("display", form.css("display") === "none" ? "block" : "none");
     };
 
