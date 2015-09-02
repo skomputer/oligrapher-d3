@@ -501,7 +501,7 @@
 
       form = $("#netmap_add_entity");
       $(this.parent_selector).append(form);
-      form.css("right", "5px");
+      form.css("left", "5px");
       form.css("bottom", "5px");
       return form.css("display", form.css("display") === "none" ? "block" : "none");
     };
@@ -513,7 +513,7 @@
       form = $("#netmap_add_related_entities");
       $(this.parent_selector).append(form);
       $("#netmap_add_related_entities_entity_id").val(entity_id);
-      form.css("right", "5px");
+      form.css("left", "5px");
       form.css("bottom", "5px");
       return form.css("display", form.css("display") === "none" ? "block" : "none");
     };

@@ -423,7 +423,7 @@ class Netmap
   toggle_add_entity_form: ->
     form = $("#netmap_add_entity")
     $(@parent_selector).append(form)
-    form.css("right", "5px")
+    form.css("left", "5px")
     form.css("bottom", "5px")
     form.css("display", if form.css("display") == "none" then "block" else "none")
 
@@ -432,7 +432,7 @@ class Netmap
     form = $("#netmap_add_related_entities")
     $(@parent_selector).append(form)
     $("#netmap_add_related_entities_entity_id").val(entity_id)
-    form.css("right", "5px")
+    form.css("left", "5px")
     form.css("bottom", "5px")
     form.css("display", if form.css("display") == "none" then "block" else "none")
                     
