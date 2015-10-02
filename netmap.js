@@ -1768,7 +1768,7 @@
       $('.entity .image-clippath').remove();
       $('.entity image.image').remove();
       bgs = groups.append("circle").attr("class", function(d) {
-        if (d.image && !t.hide_images) {
+        if (d.image && !t.hide_images && !d.hide_image) {
           return "image-bg";
         } else {
           return "image-bg custom";
@@ -2238,7 +2238,19 @@
       entity = this.entity_by_id(id);
       if (entity) {
         entity.hide_image = value;
-        return this.update_entity_images();
+        return this.build_entity_images();
+      } else {
+        return false;
+      }
+    };
+
+    Netmap.prototype.set_entity_image = function(id, value) {
+      var entity;
+
+      entity = this.entity_by_id(id);
+      if (entity) {
+        entity.image = value;
+        return this.build_entity_images();
       } else {
         return false;
       }
@@ -2293,6 +2305,10 @@
 
     Netmap.prototype.set_selected_entity_hide_image = function(value) {
       return this.set_entity_hide_image(this.selected_entity_id(), value);
+    };
+
+    Netmap.prototype.set_selected_entity_image = function(value) {
+      return this.set_entity_image(this.selected_entity_id(), value);
     };
 
     Netmap.prototype.set_selected_entity_scale = function(value) {

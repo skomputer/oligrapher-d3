@@ -1262,7 +1262,7 @@ class Netmap
 
     # circle for background and highlighting
     bgs = groups.append("circle")
-      .attr("class", (d) -> if (d.image and !t.hide_images) then "image-bg" else "image-bg custom")
+      .attr("class", (d) -> if (d.image and !t.hide_images and !d.hide_image) then "image-bg" else "image-bg custom")
       .attr("opacity", 1)
       .attr("r", (d) -> 25 * d.scale)
       .attr("x", (d) -> -29 * d.scale)
@@ -1580,7 +1580,16 @@ class Netmap
 
     if entity
       entity.hide_image = value
-      @update_entity_images()
+      @build_entity_images()
+    else
+      false
+
+  set_entity_image: (id, value) ->
+    entity = @entity_by_id(id)
+
+    if entity
+      entity.image = value
+      @build_entity_images()
     else
       false
 
@@ -1616,6 +1625,9 @@ class Netmap
 
   set_selected_entity_hide_image: (value) ->
     @set_entity_hide_image(@selected_entity_id(), value)
+
+  set_selected_entity_image: (value) ->
+    @set_entity_image(@selected_entity_id(), value)
 
   set_selected_entity_scale: (value) ->
     @set_entity_scale(@selected_entity_id(), value)
